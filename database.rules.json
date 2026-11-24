@@ -1,0 +1,35 @@
+{
+  "rules": {
+    "hexaprog": {
+      "lobby": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 20 && newData.child('status').isString()"
+        }
+      },
+      "challenges": {
+        "$to": {
+          ".read": "auth != null && auth.uid === $to",
+          "$from": {
+            ".read": "auth != null && auth.uid === $from",
+            ".write": "auth != null && (auth.uid === $from || auth.uid === $to)",
+            ".validate": "newData.child('fromName').isString() && newData.child('status').isString()"
+          }
+        }
+      },
+      "games": {
+        "$gid": {
+          ".read": "auth != null && (data.child('meta/p1').val() === auth.uid || data.child('meta/p2').val() === auth.uid)",
+          ".write": "auth != null && (data.exists() ? (data.child('meta/p1').val() === auth.uid || data.child('meta/p2').val() === auth.uid) : newData.child('meta/p2').val() === auth.uid)",
+          "orders": {
+            "$turn": {
+              "p0": { ".validate": "newData.isString() && !data.exists() && root.child('hexaprog/games/' + $gid + '/meta/p1').val() === auth.uid" },
+              "p1": { ".validate": "newData.isString() && !data.exists() && root.child('hexaprog/games/' + $gid + '/meta/p2').val() === auth.uid" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
