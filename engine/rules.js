@@ -17,7 +17,7 @@ export const DEFAULT_RULES = Object.freeze({
   /** Each ship fires at most one weapon per turn: a laser or a torpedo. */
   oneWeaponPerTurn: true,
 
-  // Assumptions (not in the rule sheet yet, see docs/rules/annahmen.md):
+  // Rule details and their alternatives (see docs/rules/regeln.md):
   /** A hit destroys a unit when the damage is larger than its energy ("negative") or when energy reaches 0 ("zero"). */
   destroyWhen: "negative",
   /** A ship that ends its move outside the board: "destroy" or "stop" (stays on its last hex inside, momentum 0). */

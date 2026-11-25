@@ -8,7 +8,7 @@ Diese WebApp dient dazu, die Regeln des Brettspiels online und mit einem KI-Lab 
 
 ## Funktionen
 
-- **Regel-Engine** nach dem ersten Regelset (Flugvariante): Hex-Feld 14 × 19, Schwung und Schub, Laser, Torpedos, Energieschilde, Basis, Torpedos auffüllen. Offene Punkte sind als Annahmen dokumentiert und umschaltbar.
+- **Regel-Engine** nach dem ersten Regelset (Flugvariante): Hex-Feld 14 × 19, Schwung und Schub, Laser, Torpedos, Energieschilde, Basis, Torpedos auffüllen. Regeldetails sind als Parameter im KI-Lab umschaltbar.
 - **Planung direkt auf dem Brett:** Schiff wählen, Schub / Laser / Torpedo antippen, markiertes Feld wählen. Flugbahn, nächster Schwung und Laser-Zone werden als Vorschau gezeigt.
 - **Animierte Ausführung** in den Schritten des Zugablaufs (Feuern, Schub, Schiffe bewegen, Waffen bewegen, Energie).
 - **Spielmodi:** gegen die KI (Leicht, Mittel, Schwer, Experte), Duell auf einem Gerät (verdeckte Planung nacheinander), KI gegen KI zuschauen, online.
@@ -21,7 +21,7 @@ Diese WebApp dient dazu, die Regeln des Brettspiels online und mit einem KI-Lab 
 Statische Seite (HTML und ES-Module, kein Build), gehostet auf GitHub Pages – wie DiceWar.
 
 - `index.html` – Spielseite
-- `docs/rules/` – Regeln (`regeln.md`) und offene Annahmen (`annahmen.md`)
+- `docs/rules/` – Regeln (`regeln.md`)
 - `docs/online.md` – Online-Lobby und Firebase-Einrichtung
 - `engine/` – Regel-Engine: `hex.js` (Hex-Geometrie), `rules.js` (alle Regelparameter), `core.js` (Aufstellung, Zugauflösung)
 - `ai/` – KI: `ai.js` (Stufen; Gegnerpläne samplen, eigenen Plan Entscheidung für Entscheidung verbessern), `eval.js` (Stellungsbewertung), `rng.js`
