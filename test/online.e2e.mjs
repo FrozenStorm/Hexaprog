@@ -185,6 +185,15 @@ try {
   assert.equal(await a.evaluate(() => window.__hexaprog.online.me), 0);
   assert.equal(await b.evaluate(() => window.__hexaprog.online.me), 1);
 
+  // Secret setup: one player takes the standard setup, the other a random one.
+  for (const [page, label] of [[a, "Standard"], [b, "Zufällig"]]) {
+    await page.click(`#side button:text-is("${label}")`);
+    await page.click("#side button.primary");
+  }
+  await a.waitForFunction(() => window.__hexaprog.phase === "play");
+  await b.waitForFunction(() => window.__hexaprog.phase === "play");
+  assert.equal(await stateOf(a), await stateOf(b), "setups differ");
+
   for (let turn = 1; turn <= 3; turn++) {
     // Each player gives ship 1 some thrust (towards the centre) and fires a laser.
     for (const [page, vec] of [[a, { q: 0, r: -1 }], [b, { q: 0, r: 1 }]]) {

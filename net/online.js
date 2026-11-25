@@ -4,7 +4,8 @@
 //   lobby/{uid}                  { name, status: "free" | "challenging" | "in_game", at }
 //   challenges/{to}/{from}       { fromName, status: "pending" | "accepted" | "declined", gameId, at }
 //   games/{id}/meta              { p1, p2, name1, name2, created, result }
-//   games/{id}/orders/{turn}/p0  orders of player 1 as JSON text (p1 for player 2)
+//   games/{id}/orders/{turn}/p0  orders of player 1 as JSON text (p1 for player 2);
+//                                turn 0 holds the secret starting setups
 //   games/{id}/presence/{uid}    { online, at }
 //
 // Simultaneous turns need no host: each player writes their orders for the turn;
@@ -192,6 +193,13 @@ function beginGame(id, meta, me) {
   g.unsubs.push(db.on(`games/${id}/orders`, (all) => {
     if (ON.game !== g || !all) return;
     const st = ON.hooks.state();
+    const s0 = all[0];
+    if (st.phase === "setup") {
+      if (s0 && s0.p0 && s0.p1) {
+        try { ON.hooks.bothSetups([JSON.parse(s0.p0), JSON.parse(s0.p1)]); } catch (e) { console.error(e); }
+      }
+      return;
+    }
     const turn = st.state.turn;
     const t = all[turn];
     if (t && t.p0 && t.p1) {
@@ -204,6 +212,11 @@ function beginGame(id, meta, me) {
     const s = $("status");
     if (!g.oppOnline && s) s.textContent = `${me === 0 ? meta.name2 : meta.name1} ist offline…`;
   }));
+}
+
+/** Write our starting setup (stored as the orders of turn 0). */
+export function submitOnlineSetup(setup) {
+  submitOnlineOrders(0, setup);
 }
 
 /** Write our orders of `turn`. */

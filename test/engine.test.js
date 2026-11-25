@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, resolveTurn, onBoard, boardCells, mirror, unitById, sanitizeOrders, specialCells } from "../engine/core.js";
-import { line, dist, toAxial, toOffset } from "../engine/hex.js";
+import { newGame, resolveTurn, onBoard, boardCells, mirror, unitById, sanitizeOrders, specialCells, validSetup, defaultSetup } from "../engine/core.js";
+import { line, dist, toAxial, toOffset, sub } from "../engine/hex.js";
 
 const V = (q, r) => ({ q, r });
 const place = (s, id, pos, vel = V(0, 0)) => { const u = unitById(s, id); u.pos = pos; u.vel = vel; return u; };
@@ -179,4 +179,70 @@ test("resolution is deterministic and does not change the input", () => {
   const a = resolveTurn(s, o), b = resolveTurn(s, o);
   assert.equal(JSON.stringify(s), json);
   assert.equal(JSON.stringify(a.state), JSON.stringify(b.state));
+});
+
+test("ship flying onto a base is destroyed, base takes 4 damage", () => {
+  const s = quiet(newGame());
+  const b = unitById(s, "p1b");
+  b.pos = toAxial(6, 9);
+  place(s, "p0s1", add(b.pos, V(-2, 0)), V(2, 0));
+  const r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(unitById(r.state, "p0s1").alive, false);
+  assert.equal(unitById(r.state, "p1b").alive, true);
+  assert.equal(unitById(r.state, "p1b").energy, 4); // 6 - 4 + 2 regen
+  assert.equal(r.stats.destroyed[0].cause, "ram");
+});
+
+test("both players lose their second unit: more energy wins, equal energy is a draw", () => {
+  const s = quiet(newGame());
+  place(s, "p0s1", toAxial(0, 9), V(-1, 0));
+  place(s, "p0s2", toAxial(0, 11), V(-1, 0));
+  place(s, "p1s1", toAxial(13, 8), V(1, 0));
+  place(s, "p1s2", toAxial(13, 10), V(1, 0));
+  let r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(r.state.winner, "draw");
+  unitById(s, "p1b").energy = 3;
+  r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(r.state.winner, 0);
+});
+
+test("any number of torpedoes in flight per ship", () => {
+  const s = quiet(newGame());
+  const c = toAxial(6, 9);
+  place(s, "p0s1", c, V(0, 0));
+  let r = resolveTurn(s, [orders({ p0s1: { launch: V(0, -1) } }), orders()]);
+  r = resolveTurn(r.state, [orders({ p0s1: { launch: V(1, -1) } }), orders()]);
+  assert.equal(r.state.weapons.filter((w) => w.kind === "torpedo").length, 2);
+  assert.equal(unitById(r.state, "p0s1").torpedoes, 0);
+});
+
+test("free setup in the own zone with momentum markers", () => {
+  const R = newGame().rules;
+  const su = { base: toAxial(5, 17), ships: [
+    { pos: toAxial(2, 16), mom: toAxial(2, 15) },
+    { pos: toAxial(6, 16), mom: toAxial(6, 16) },
+    { pos: toAxial(10, 18), mom: toAxial(11, 15) },
+  ] };
+  assert.ok(validSetup(R, 0, su));
+  assert.ok(!validSetup(R, 1, su));
+  assert.ok(!validSetup(R, 0, { ...su, base: toAxial(5, 14) }));
+  assert.ok(!validSetup(R, 0, { ...su, base: toAxial(2, 16) }));
+  assert.ok(!validSetup(R, 0, { ...su, ships: [su.ships[0], su.ships[1], { pos: toAxial(10, 18), mom: toAxial(10, 14) }] }));
+  const g = newGame({}, [su, null]);
+  assert.deepEqual(unitById(g, "p0s1").vel, sub(toAxial(2, 15), toAxial(2, 16)));
+  assert.deepEqual(unitById(g, "p0b").pos, toAxial(5, 17));
+  assert.deepEqual(toOffset(unitById(g, "p1b").pos), { col: 9, row: 3 }); // default for a missing setup
+  for (const p of [0, 1]) assert.ok(validSetup(R, p, defaultSetup(R, p)));
+});
+
+test("torpedoes only thrust into the front half of their flight direction", async () => {
+  const { torpThrustOptions } = await import("../engine/core.js");
+  const s = newGame();
+  const w = { vel: V(1, 0) };
+  const opts = torpThrustOptions(s, w).map((d) => `${d.q},${d.r}`).sort();
+  assert.deepEqual(opts, ["0,0", "1,-1", "1,0", "0,1"].sort());
+  const t = { id: "T1", kind: "torpedo", owner: 0, from: "p0s1", pos: toAxial(6, 9), vel: V(1, 0) };
+  s.weapons.push(t);
+  assert.equal(sanitizeOrders(s, 0, orders({}, { T1: V(-1, 0) })).torps.T1, undefined);
+  assert.deepEqual(sanitizeOrders(s, 0, orders({}, { T1: V(0, 1) })).torps.T1, V(0, 1));
 });

@@ -11,7 +11,7 @@
 
 import { add, len, dist, diskCached, line, key } from "../engine/hex.js";
 import {
-  resolveTurn, liveShips, liveUnits, emptyOrders, canFireLaser, canLaunch, weaponOptions, onBoard,
+  resolveTurn, liveShips, liveUnits, emptyOrders, canFireLaser, canLaunch, weaponOptions, onBoard, torpThrustOptions,
 } from "../engine/core.js";
 import { evaluate } from "./eval.js";
 import { makeRng } from "./rng.js";
@@ -71,7 +71,7 @@ export function reflexPlan(s, p, rng, chaos = 0.5) {
   for (const w of s.weapons) {
     if (w.kind !== "torpedo" || w.owner !== p || !enemies.length) continue;
     const e = enemies.reduce((a, b) => (dist(a.pos, w.pos) <= dist(b.pos, w.pos) ? a : b));
-    o.torps[w.id] = diskCached(R.torpedo.thrust).reduce((a, b) =>
+    o.torps[w.id] = torpThrustOptions(s, w).reduce((a, b) =>
       (dist(add(w.pos, add(w.vel, a)), e.pos) <= dist(add(w.pos, add(w.vel, b)), e.pos) ? a : b));
   }
   return o;
@@ -87,7 +87,7 @@ function decisions(s, p) {
     if (canLaunch(s, u)) out.push({ unit: u.id, field: "launch", options: [null, ...weaponOptions(s, u, "torpedo")] });
   }
   for (const w of s.weapons) {
-    if (w.kind === "torpedo" && w.owner === p) out.push({ torp: w.id, options: diskCached(R.torpedo.thrust) });
+    if (w.kind === "torpedo" && w.owner === p) out.push({ torp: w.id, options: torpThrustOptions(s, w) });
   }
   return out;
 }

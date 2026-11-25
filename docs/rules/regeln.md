@@ -2,11 +2,15 @@
 
 Ein rundenbasiertes Weltraum-Strategiespiel, bei welchem die Spieler ihre Züge gleichzeitig planen und ausführen, um mit geschicktem Fliegen die gegnerischen Einheiten zu zerstören.
 
-Quelle: *Spielregeln_Flugvariante.docx* (erstes Regelset). Was dort offen ist, steht in [annahmen.md](annahmen.md) und ist im KI-Lab umschaltbar. Alle Zahlen sind Parameter in `engine/rules.js`.
+Quelle: *Spielregeln_Flugvariante.docx* (erstes Regelset) und Daniels Antworten auf die offenen Punkte vom 25.11.2026, gesammelt in [annahmen.md](annahmen.md). Varianten sind im KI-Lab umschaltbar. Alle Zahlen sind Parameter in `engine/rules.js`.
 
 ## Spielfeld
 
-Hexagon-Karte mit 14 × 19 Feldern: 19 Reihen, gerade Reihen mit 14 Feldern, ungerade mit 13 (um ein halbes Feld versetzt). Vier grüne Felder (zwei pro Seite) und ein helles Mittelfeld sind markiert.
+Hexagon-Karte mit 14 × 19 Feldern: 19 Reihen, gerade Reihen mit 14 Feldern, ungerade mit 13 (um ein halbes Feld versetzt). Vier grüne Felder (zwei pro Seite) und ein helles Mittelfeld sind nur Orientierungshilfen ohne Einfluss aufs Spiel (später vielleicht Planeten mit Gravitation).
+
+## Aufstellung
+
+Zu Beginn stellt jeder Spieler verdeckt seine Basis, seine drei Schiffe und den Schwung-Marker jedes Schiffs frei in seiner eigenen Zone auf: die untersten vier Reihen (Spieler 1) bzw. die obersten vier (Spieler 2). Einheiten brauchen je ein eigenes Feld; liegt der Schwung-Marker auf dem Schiff, startet es mit Schwung 0. Dann werden die Aufstellungen gleichzeitig aufgedeckt.
 
 ## Kommandokarte
 
@@ -23,7 +27,9 @@ Jeder Spieler hat zu Beginn **3 Schiffe und 1 Basis**.
 | Schub | 0 (kann sich nicht bewegen) | 1 |
 | Torpedoplätze | – | 2 |
 
-Beendet ein Schiff seine Bewegung angrenzend an die eigene Basis, werden seine Torpedos aufgefüllt.
+Beendet ein Schiff seine Bewegung angrenzend an die eigene Basis, werden seine Torpedos aufgefüllt. Die Basis hat keine Waffen.
+
+Fliegt ein Schiff auf das Feld einer Basis (auch der eigenen), wird das Schiff zerstört und die Basis erleidet 4 Schaden.
 
 ## Allgemeine Regeln
 
@@ -31,7 +37,10 @@ Beendet ein Schiff seine Bewegung angrenzend an die eigene Basis, werden seine T
 - Laser abzufeuern kostet Energiepunkte.
 - Jedes Schiff hat begrenzten Laderaum für Torpedos.
 - Jeder Spieler plant seinen Zug geheim auf seiner Kommandokarte, anschliessend führen beide Spieler alle weiteren Punkte gleichzeitig aus.
-- Wer zuerst **zwei Einheiten** (Basen oder Schiffe) verliert, hat das Spiel verloren.
+- Wer zuerst **zwei Einheiten** (Basen oder Schiffe) verliert, hat das Spiel verloren. Verlieren beide im selben Zug ihre zweite Einheit, gewinnt, wer mehr verbleibende Energie hat; bei Gleichstand unentschieden.
+- Eine Einheit ist zerstört, wenn ein Treffer mehr Schaden macht, als sie Energie hat. Regeneration füllt höchstens bis zum Startwert auf.
+- Ein Schiff, dessen Ziel ausserhalb des Spielfelds liegt, ist zerstört.
+- Nach 40 Zügen gewinnt, wer weniger Einheiten verloren hat, dann wer mehr Energie hat.
 - **Schwung** wird mit einem Marker pro Einheit dargestellt und zeigt, wohin sich die Einheit im nächsten Zug bewegen würde. Mit Schub kann dieser Marker verschoben werden.
 - Abgefeuerte Waffen werden als Marker auf dem Spielfeld dargestellt.
 
@@ -55,6 +64,6 @@ Beendet ein Schiff seine Bewegung angrenzend an die eigene Basis, werden seine T
 
 ### Torpedo
 - Schaden 2, Schadenszone 1 Feld Radius um den Torpedo-Marker.
-- Initialer Schwung: Schwung des Schiffs ±1, danach Schub 1 (wird jeden Zug auf der Torpedo-Kommandokarte geplant).
-- Kosten: 1 Torpedo aus dem Schiffsvorrat.
+- Initialer Schwung: Schwung des Schiffs ±1, danach Schub 1 (wird jeden Zug auf der Torpedo-Kommandokarte geplant). Torpedos werden wie Schiffe über Schub gesteuert, haben aber nur Vorwärtsschub: der Schub darf nur in die vordere Hälfte der aktuellen Flugrichtung gelegt werden (geradeaus oder schräg nach vorne).
+- Kosten: 1 Torpedo aus dem Schiffsvorrat. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben.
 - Fliegt weiter wie ein Schiff und detoniert automatisch, wenn eine gegnerische Einheit in seiner Schadenszone ist oder wenn er direkt auf eine eigene Einheit fliegt. In beiden Fällen erleiden alle Einheiten in der Schadenszone Schaden.

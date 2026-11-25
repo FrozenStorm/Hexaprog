@@ -71,6 +71,7 @@
     .opt.laser { stroke: var(--danger); } .opt.launch, .opt.steer { stroke: #f5d76e; }
     .opt.sel { fill: #e0b86a55; stroke-width: 2.4; }
     .opt.laser.sel { fill: #ff4b4b55; }
+    .opt.setup { stroke: none; fill: #e0b86a1c; }
     .zone { fill: #ff4b4b30; stroke: none; pointer-events: none; }
     .arrow { stroke-width: 2; pointer-events: none; }
     .arrow.p0 { stroke: var(--p0); } .arrow.p1 { stroke: var(--p1); } .arrow.torp { stroke: #f5d76e; stroke-dasharray: 3 2; }
@@ -186,13 +187,15 @@
   <div class="overlay-screen" id="rules">
     <div class="dialog rules-text">
       <div class="row"><h2 class="grow">Regeln (Kurzfassung)</h2><button id="rules-close">✕</button></div>
-      <p>Jeder Spieler hat <b>1 Basis</b> und <b>3 Schiffe</b>. Wer zuerst <b>zwei Einheiten</b> (Basen oder Schiffe) verliert, verliert das Spiel.</p>
+      <p>Jeder Spieler hat <b>1 Basis</b> und <b>3 Schiffe</b>. Wer zuerst <b>zwei Einheiten</b> (Basen oder Schiffe) verliert, verliert das Spiel. Verlieren beide im selben Zug ihre zweite Einheit, gewinnt, wer mehr Energie übrig hat (sonst unentschieden).</p>
+      <h3>Aufstellung</h3>
+      <p>Zu Beginn stellt jeder verdeckt seine Basis, seine Schiffe und deren Schwung-Marker frei in seiner Zone auf (die untersten bzw. obersten 4 Reihen).</p>
       <h3>Zugablauf</h3>
       <ol>
         <li><b>Zug planen</b> – beide gleichzeitig und verdeckt.</li>
         <li><b>Waffen abfeuern</b> – Laser und Torpedos werden neben den Schwung-Marker des Schiffs gelegt (±1).</li>
         <li><b>Schub</b> – der Schwung-Marker jedes Schiffs wird um bis zu 1 Feld verschoben.</li>
-        <li><b>Schiffe bewegen</b> – jedes Schiff rückt auf seinen Schwung-Marker vor, der Marker wird mit gleichem Abstand neu gelegt. Zwei Schiffe auf einem Feld: beide zerstört.</li>
+        <li><b>Schiffe bewegen</b> – jedes Schiff rückt auf seinen Schwung-Marker vor, der Marker wird mit gleichem Abstand neu gelegt. Zwei Schiffe auf einem Feld: beide zerstört. Fliegt ein Schiff auf eine Basis, wird es zerstört und die Basis erleidet 4 Schaden.</li>
         <li><b>Waffen bewegen</b> – Waffen fliegen gemäss ihrem Schwung. Schaden wird vor und nach der Bewegung geprüft.</li>
         <li><b>Energie regenerieren</b> – Schiff +1, Basis +2 (max. 6).</li>
         <li><b>Aufräumen</b> – Laser verschwinden.</li>
@@ -202,7 +205,7 @@
       <h3>Laser</h3>
       <p>Schaden 1 an allen Einheiten, die in diesem Zug auf oder über ein Feld der Linie zwischen Schiff und Laser-Marker fliegen oder dort stehen. Jeder Laser trifft jede Einheit höchstens einmal.</p>
       <h3>Torpedo</h3>
-      <p>Jedes Schiff trägt 2 Torpedos. Ein Torpedo fliegt wie ein Schiff (Schub 1) und detoniert, sobald ein Gegner im Radius 1 ist oder wenn er direkt auf eine eigene Einheit fliegt: 2 Schaden an allen Einheiten im Radius 1. Endet ein Schiff neben der eigenen Basis, werden seine Torpedos aufgefüllt.</p>
+      <p>Jedes Schiff trägt 2 Torpedos, beliebig viele dürfen gleichzeitig fliegen. Ein Torpedo fliegt wie ein Schiff, hat aber nur Vorwärtsschub (1 Feld, geradeaus oder schräg nach vorne), und detoniert, sobald ein Gegner im Radius 1 ist oder wenn er direkt auf eine eigene Einheit fliegt: 2 Schaden an allen Einheiten im Radius 1. Endet ein Schiff neben der eigenen Basis, werden seine Torpedos aufgefüllt.</p>
       <h3>Bedienung</h3>
       <p>Schiff antippen, dann <b>Schub</b>, <b>Laser</b> oder <b>Torpedo</b> wählen und ein markiertes Feld antippen. Gestrichelte Kreise zeigen den Schwung (wohin die Einheit ohne Schub fliegt). Rote Felder zeigen die Laser-Zone.</p>
       <p class="hint">Vollständige Regeln und offene Annahmen: docs/rules im Repository.</p>
