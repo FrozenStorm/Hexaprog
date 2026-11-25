@@ -1,11 +1,11 @@
 // Service worker: the game works offline (except the online lobby).
 // Network first, so a new version is used as soon as it is online.
-const CACHE_NAME = "hexaprog-v2";
+const CACHE_NAME = "hexaprog-v3";
 const ASSETS = [
   "./", "index.html", "site.webmanifest", "icon/icon.svg",
   "engine/hex.js", "engine/rules.js", "engine/core.js",
   "ai/ai.js", "ai/eval.js", "ai/rng.js", "ai/setup.js",
-  "lab/runner.js", "lab/lab-worker.js",
+  "lab/runner.js", "lab/lab-worker.js", "lab/render.js", "lab/gif.js", "lab/zip.js",
   "ui/app.js", "ui/board.js", "ui/lab.js", "ui/ai-worker.js",
   "net/online.js", "net/backend-firebase.js", "net/firebase-config.js",
 ];

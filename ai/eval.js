@@ -1,6 +1,6 @@
 // Position evaluation from the view of player `me`: positive is good for `me`.
 import { add, dist, len, diskCached } from "../engine/hex.js";
-import { onBoard, liveUnits } from "../engine/core.js";
+import { moveOk, liveUnits } from "../engine/core.js";
 
 export const W = {
   win: 100000,
@@ -24,8 +24,7 @@ function sideScore(s, p) {
     if (u.kind !== "ship") continue;
     v += W.torpedo * u.torpedoes;
     if (R.edge === "destroy") {
-      const next = add(u.pos, u.vel);
-      if (!diskCached(R.ship.thrust).some((d) => onBoard(R, add(next, d)))) v -= W.doomed;
+      if (!diskCached(R.ship.thrust).some((d) => moveOk(R, u.pos, add(u.vel, d)))) v -= W.doomed;
     }
     const sp = len(u.vel);
     if (sp > 2) v -= W.fast * (sp - 2) * (sp - 2);

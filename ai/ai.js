@@ -11,7 +11,7 @@
 
 import { add, len, dist, diskCached, line, key } from "../engine/hex.js";
 import {
-  resolveTurn, liveShips, liveUnits, emptyOrders, canFireLaser, canLaunch, weaponOptions, onBoard, torpThrustOptions,
+  resolveTurn, liveShips, liveUnits, emptyOrders, canFireLaser, canLaunch, weaponOptions, onBoard, torpThrustOptions, moveOk, clearLine,
 } from "../engine/core.js";
 import { evaluate } from "./eval.js";
 import { makeRng } from "./rng.js";
@@ -34,8 +34,8 @@ export function reflexPlan(s, p, rng, chaos = 0.5) {
   const enemies = liveUnits(s, 1 - p);
   for (const u of liveShips(s, p)) {
     const thrusts = diskCached(R.ship.thrust).filter((d) => {
-      const n = add(add(u.pos, u.vel), d);
-      return onBoard(R, n) && onBoard(R, add(n, add(u.vel, d)));
+      const v = add(u.vel, d);
+      return moveOk(R, u.pos, v) && moveOk(R, add(u.pos, v), v);
     });
     let thrust = rng.pick(thrusts.length ? thrusts : diskCached(R.ship.thrust));
     if (rng() > chaos && enemies.length) {
@@ -52,7 +52,7 @@ export function reflexPlan(s, p, rng, chaos = 0.5) {
       let best = null, bestN = 0;
       for (const d of weaponOptions(s, u, "laser")) {
         const vel = add(u.vel, d);
-        const zone = new Set(line(end, add(add(u.pos, vel), vel)).map(key));
+        const zone = new Set(clearLine(R, end, add(add(u.pos, vel), vel)).map(key));
         let n = 0;
         for (const e of enemies) {
           if (zone.has(key(e.pos)) || zone.has(key(add(e.pos, e.vel)))) n++;

@@ -2,7 +2,7 @@
 // (against the AI, duel on one device, AI vs AI, online, replay).
 import { add, eq, key, len, diskCached, line } from "../engine/hex.js";
 import {
-  newGame, resolveTurn, torpThrustOptions, inSetupZone, setupZone, defaultSetup, validSetup, liveShips, unitById, torpsOf, emptyOrders, canFireLaser, canLaunch,
+  newGame, resolveTurn, torpThrustOptions, inSetupZone, isPlanet, clearLine, setupZone, defaultSetup, validSetup, liveShips, unitById, torpsOf, emptyOrders, canFireLaser, canLaunch,
   weaponOptions, maxEnergy, PLAYER_NAMES,
 } from "../engine/core.js";
 import { Board } from "./board.js";
@@ -21,7 +21,7 @@ const store = {
 
 const TOOL_NAMES = { thrust: "Schub", laser: "Laser", launch: "Torpedo", steer: "Steuern" };
 const CAUSE = { ram: "Basis gerammt", "ram-own": "eigene Basis gerammt", laser: "Laser", torpedo: "Torpedo", "laser+torpedo": "Laser und Torpedo", "torpedo+laser": "Torpedo und Laser",
-  collision: "Kollision", "collision-own": "Kollision mit eigenem Schiff", edge: "Spielfeldrand verlassen" };
+  collision: "Kollision", "collision-own": "Kollision mit eigenem Schiff", edge: "Spielfeldrand verlassen", planet: "auf Planet geprallt" };
 
 const G = {
   mode: null,        // ai | duel | watch | online | replay
@@ -137,6 +137,7 @@ function onSetupCell(c) {
   const items = setupItems();
   const it = items[G.setupStep];
   if (!it) return;
+  if (it.kind !== "mom" && isPlanet(G.state.rules, c)) return;
   if (it.kind !== "mom") {
     // Units need their own hex.
     const taken = [G.draft.base, ...G.draft.ships.map((x) => x.pos)].some((x, k) => x && eq(x, c) && !(it.kind === "base" ? k === 0 : k === it.i + 1));
@@ -248,7 +249,7 @@ function render() {
     const hidden = G.online && G.online.submitted;
     G.board.show(hidden ? { units: [], weapons: [] } : setupView(), G.info);
     G.board.clearOverlay();
-    if (!hidden) G.board.options(setupZone(s.rules, G.planner), "setup", null);
+    if (!hidden) G.board.options(setupZone(s.rules, G.planner).filter((c) => !isPlanet(s.rules, c)), "setup", null);
     const side = $("side");
     side.innerHTML = "";
     if (hidden) side.innerHTML = `<div class="hint">Warte auf die Aufstellung von ${G.online.names[1 - G.online.me]}…</div>`;
@@ -303,7 +304,7 @@ function renderOverlay() {
     const vel = add(u.vel, o.thrust || { q: 0, r: 0 });
     if (o.laser) {
       const lv = add(u.vel, o.laser);
-      b.zone(line(end, add(add(u.pos, lv), lv)), "laser");
+      b.zone(clearLine(s.rules, end, add(add(u.pos, lv), lv)), "laser");
     }
     b.arrow(u.pos, end, `p${p}`, p);
     if (!eq(u.pos, end)) b.ghost(end, `p${p}`);

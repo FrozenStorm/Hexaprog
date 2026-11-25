@@ -17,9 +17,13 @@ Daniel hat die Punkte am 25.11.2026 beantwortet. Die Spalte „Parameter“ nenn
 | 11 | Beide verlieren im selben Zug ihre zweite Einheit | **Wer mehr verbleibende Energie hat, gewinnt**; bei Gleichstand unentschieden. | – |
 | 12 | Spiel ohne Ende | Nach 40 Zügen gewinnt, wer weniger Einheiten verloren hat, dann wer mehr Energie hat; sonst unentschieden. | `maxTurns`, `timeout` |
 | 13 | Startaufstellung | **Jeder Spieler stellt verdeckt Basis, Schiffe und die Schwung-Marker der Schiffe frei in seiner Zone auf** (unterste bzw. oberste 4 Reihen). Die KI stellt zufällig, aber sinnvoll auf (Basis meist auf einem grünen Feld, Schiffe verteilt, etwas Schwung nach vorne). | `setupRows` |
-| 14 | Grüne Felder und helles Mittelfeld | Nur Orientierungshilfen ohne Einfluss aufs Spiel. Später eventuell Planeten mit Gravitation. | – |
+| 14 | Grüne Felder und helles Mittelfeld | Zuerst nur Orientierungshilfen; **seit 25.11. Planeten**, die nicht durchflogen oder durchschossen werden können. Annahmen dazu: Ein Schiff, das in einen Planeten fliegt, ist zerstört (wie am Spielfeldrand). Ein Torpedo, der in einen Planeten fliegt, geht ohne Detonation verloren. Ein Laser endet vor dem Planeten. | `planets` |
 | 15 | Feuert die Basis? | Nein. | – |
 | 16 | Reihenfolge in Schritt 4 | Alle Schiffe ziehen gleichzeitig, danach Kollisionen, dann Torpedos auffüllen. | – |
 | 17 | Schaden in Schritt 5 | Alle Waffen prüfen gleichzeitig; Schaden wird summiert und danach angewendet. | – |
 
-Annahme zu Punkt 13: Auch die **Basis** wird frei in der Zone aufgestellt (die Antwort nennt „Schiffe und Schwung-Marker“ in der eigenen Zone; die Basis liegt ohnehin dort). Falls die Basis fest auf einem grünen Feld stehen soll, ist das eine kleine Änderung.
+Zu Punkt 13: Auch die **Basis** wird frei in der eigenen Zone aufgestellt (bestätigt am 25.11.), aber nicht auf einem Planeten.
+
+## Spätere Änderungen
+
+- **25.11.2026:** Schiffe regenerieren keine Energie mehr, dafür kosten Laser keine Energie (`ship.regen: 0`, `laser.cost: 0`). Die Basis regeneriert weiter +2.

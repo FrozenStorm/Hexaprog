@@ -49,6 +49,8 @@
     .cell.green { fill: var(--green); }
     .cell.centre { fill: var(--centre); }
     .cell-hit { fill: transparent; cursor: pointer; }
+    .planet { stroke: #0b0d10; stroke-width: 1; } .planet.green { fill: url(#pg-green); } .planet.centre { fill: url(#pg-centre); }
+    .planet-shine { fill: #ffffff2a; pointer-events: none; }
     .unit { transition: transform .55s ease-in-out, opacity .5s; }
     .unit .body { transition: transform .4s; }
     .unit .hull { stroke: #0b0d10; stroke-width: 1.4; }
@@ -197,11 +199,13 @@
         <li><b>Schub</b> – der Schwung-Marker jedes Schiffs wird um bis zu 1 Feld verschoben.</li>
         <li><b>Schiffe bewegen</b> – jedes Schiff rückt auf seinen Schwung-Marker vor, der Marker wird mit gleichem Abstand neu gelegt. Zwei Schiffe auf einem Feld: beide zerstört. Fliegt ein Schiff auf eine Basis, wird es zerstört und die Basis erleidet 4 Schaden.</li>
         <li><b>Waffen bewegen</b> – Waffen fliegen gemäss ihrem Schwung. Schaden wird vor und nach der Bewegung geprüft.</li>
-        <li><b>Energie regenerieren</b> – Schiff +1, Basis +2 (max. 6).</li>
+        <li><b>Energie regenerieren</b> – nur die Basis, +2 (max. 6). Schiffe regenerieren nicht.</li>
         <li><b>Aufräumen</b> – Laser verschwinden.</li>
       </ol>
+      <h3>Planeten</h3>
+      <p>Die fünf farbigen Felder sind Planeten. Schiffe, die hinein- oder hindurchfliegen, sind zerstört. Laser enden vor einem Planeten, Torpedos gehen daran verloren. Auf Planeten darf nichts aufgestellt werden.</p>
       <h3>Energie</h3>
-      <p>Schiffe und Basis haben 6 Energie. Treffer verbrauchen Energie (Schild), ein Laserschuss kostet 1. Ist der Schaden grösser als die Energie, wird die Einheit zerstört.</p>
+      <p>Schiffe und Basis haben 6 Energie. Treffer verbrauchen Energie (Schild). Laser schiessen kostet nichts. Ist der Schaden grösser als die Energie, wird die Einheit zerstört.</p>
       <h3>Laser</h3>
       <p>Schaden 1 an allen Einheiten, die in diesem Zug auf oder über ein Feld der Linie zwischen Schiff und Laser-Marker fliegen oder dort stehen. Jeder Laser trifft jede Einheit höchstens einmal.</p>
       <h3>Torpedo</h3>

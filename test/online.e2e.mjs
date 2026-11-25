@@ -195,18 +195,20 @@ try {
   assert.equal(await stateOf(a), await stateOf(b), "setups differ");
 
   for (let turn = 1; turn <= 3; turn++) {
-    // Each player gives ship 1 some thrust (towards the centre) and fires a laser.
+    // Each player fires a laser with ship 1 (no thrust, so random setups do not crash into a planet).
     for (const [page, vec] of [[a, { q: 0, r: -1 }], [b, { q: 0, r: 1 }]]) {
       await page.evaluate((v) => {
         const G = window.__hexaprog;
         const id = `p${G.online.me}s1`;
-        G.orders[G.online.me].units[id] = { thrust: v, laser: v, launch: null };
+        G.orders[G.online.me].units[id] = { thrust: { q: 0, r: 0 }, laser: v, launch: null };
       }, vec);
       await page.click("#side button.primary");
     }
-    await a.waitForFunction((t) => window.__hexaprog.state.turn === t + 1 && !window.__hexaprog.busy, turn, { timeout: 20000 });
-    await b.waitForFunction((t) => window.__hexaprog.state.turn === t + 1 && !window.__hexaprog.busy, turn, { timeout: 20000 });
+    const done = (t) => (window.__hexaprog.state.turn === t + 1 || window.__hexaprog.state.over) && !window.__hexaprog.busy;
+    await a.waitForFunction(done, turn, { timeout: 20000 });
+    await b.waitForFunction(done, turn, { timeout: 20000 });
     assert.equal(await stateOf(a), await stateOf(b), `states differ after turn ${turn}`);
+    if (await a.evaluate(() => window.__hexaprog.state.over)) break;
   }
   // An order cannot be overwritten by the other player.
   const gid = Object.keys(db.root.hexaprog.games)[0];

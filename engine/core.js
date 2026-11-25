@@ -54,6 +54,41 @@ export function specialCells(rules) {
 }
 
 // ---------------------------------------------------------------------------
+// Planets: the coloured hexes block ships, lasers and torpedoes
+// ---------------------------------------------------------------------------
+
+const PLANETS = new WeakMap();
+/** Set of hex keys that are planets (empty when rules.planets is off). */
+export function planetSet(rules) {
+  let set = PLANETS.get(rules);
+  if (!set) {
+    const sp = specialCells(rules);
+    set = new Set(rules.planets ? [...sp.green, ...sp.centre].map(key) : []);
+    PLANETS.set(rules, set);
+  }
+  return set;
+}
+export const isPlanet = (rules, a) => planetSet(rules).has(key(a));
+
+/** The hexes of line(a, b) up to (not including) the first planet. */
+export function clearLine(rules, a, b) {
+  const out = [];
+  for (const c of line(a, b)) {
+    if (isPlanet(rules, c)) break;
+    out.push(c);
+  }
+  return out;
+}
+
+/** Can a unit at pos fly with momentum vel without leaving the board or hitting a planet? */
+export function moveOk(rules, pos, vel) {
+  const target = add(pos, vel);
+  if (!onBoard(rules, target)) return false;
+  const p = planetSet(rules);
+  return !line(pos, target).some((c) => p.has(key(c)));
+}
+
+// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
@@ -75,9 +110,9 @@ export function defaultSetup(ruleOverrides, p) {
   const centre = specialCells(rules).centre[0];
   // Ships on the neighbours of the base that are closest to the centre, momentum 0.
   const around = diskCached(1).filter((d) => len(d) === 1).map((d) => add(base1, d))
-    .filter((c) => inSetupZone(rules, 0, c))
+    .filter((c) => inSetupZone(rules, 0, c) && !isPlanet(rules, c))
     .sort((a, b) => dist(a, centre) - dist(b, centre) || toOffset(a).col - toOffset(b).col);
-  const zone = setupZone(rules, 0).filter((c) => !eq(c, base1) && !around.some((x) => eq(x, c)));
+  const zone = setupZone(rules, 0).filter((c) => !eq(c, base1) && !isPlanet(rules, c) && !around.some((x) => eq(x, c)));
   const ships = [];
   for (let i = 0; i < rules.shipsPerPlayer; i++) ships.push(around[i] || zone[i]);
   ships.sort((a, b) => toOffset(a).col - toOffset(b).col || a.r - b.r);
@@ -91,6 +126,7 @@ export function validSetup(ruleOverrides, p, setup) {
   const cells = [setup.base, ...setup.ships.map((x) => x && x.pos)];
   const hexOk = (c) => c && Number.isInteger(c.q) && Number.isInteger(c.r) && inSetupZone(rules, p, c);
   if (!cells.every(hexOk) || !setup.ships.every((x) => hexOk(x.mom))) return false;
+  if (cells.some((c) => isPlanet(rules, c))) return false;
   return new Set(cells.map(key)).size === cells.length;
 }
 
@@ -216,8 +252,12 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
       u.torpedoes -= 1;
       const vel = add(u.vel, o.launch);
       const id = `T${s.nextId++}`;
-      s.weapons.push({ id, kind: "torpedo", owner: u.owner, from: u.id, pos: add(u.pos, vel), vel });
-      fresh.add(id);
+      const spawn = add(u.pos, vel);
+      // A torpedo launched into a planet is lost.
+      if (!line(u.pos, spawn).some((c) => isPlanet(R, c))) {
+        s.weapons.push({ id, kind: "torpedo", owner: u.owner, from: u.id, pos: spawn, vel });
+        fresh.add(id);
+      }
       stats.launches[u.owner]++;
     }
   }
@@ -250,7 +290,16 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     if (u.kind === "base") { paths.set(u.id, [u.pos]); continue; }
     const target = add(u.pos, u.vel);
     let path = line(u.pos, target);
-    if (!onBoard(R, target)) {
+    const hitPlanet = path.findIndex((c, i) => i > 0 && isPlanet(R, c));
+    const leaves = path.findIndex((c) => !onBoard(R, c));
+    if (hitPlanet > 0 && (leaves < 0 || hitPlanet < leaves)) {
+      // Crashes into a planet: the ship is lost where it hits.
+      const at = path[hitPlanet];
+      path = path.slice(0, hitPlanet);
+      u.pos = path[path.length - 1];
+      destroy(u, "planet");
+      moveFx.push({ type: "lost", id: u.id, pos: at });
+    } else if (!onBoard(R, target)) {
       if (R.edge === "stop") {
         let i = 0;
         while (i + 1 < path.length && onBoard(R, path[i + 1])) i++;
@@ -327,21 +376,26 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     if (w.kind === "laser") {
       const ship = unitById(s, w.from);
       const zone = new Set();
-      for (const c of line(ship.pos, w.pos)) zone.add(key(c));
+      // Planets block the beam: the zone ends in front of the first planet.
+      const z1 = clearLine(R, ship.pos, w.pos);
+      for (const c of z1) zone.add(key(c));
       const before = { ...w.pos };
       w.pos = add(w.pos, w.vel);
-      for (const c of line(ship.pos, w.pos)) zone.add(key(c));
+      const z2 = clearLine(R, ship.pos, w.pos);
+      for (const c of z2) zone.add(key(c));
       for (const u of alive) {
         if (u.id === ship.id) continue;
         if (u.owner === w.owner && !R.friendlyFire) continue;
         const path = paths.get(u.id) || [u.pos];
         if (path.some((c) => zone.has(key(c)))) hit(u, R.laser.damage, "laser");
       }
-      fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...w.pos } });
+      fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...(z2[z2.length - 1] || ship.pos) } });
     } else {
       if (enemyNear(w, w.pos)) { detonate(w, w.pos); continue; }
       const target = add(w.pos, w.vel);
+      const crash = line(w.pos, target).find((c, i) => i > 0 && isPlanet(R, c));
       w.pos = target;
+      if (crash) { w.gone = true; fx.push({ type: "fizzle", pos: { ...crash } }); continue; }
       if (!onBoard(R, target)) { w.gone = true; fx.push({ type: "fizzle", pos: { ...target } }); continue; }
       if (alive.some((u) => u.owner === w.owner && eq(u.pos, target)) || enemyNear(w, target)) detonate(w, target);
     }
@@ -391,10 +445,10 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
 export const predictedPos = (u, thrust) => add(add(u.pos, u.vel), thrust || ZERO);
 
 /** Laser zone preview: line from the ship's new position to the laser marker after its move. */
-export function laserPreview(u, laserVec, thrust) {
+export function laserPreview(rules, u, laserVec, thrust) {
   const vel = add(u.vel, laserVec);
   const marker = add(add(u.pos, vel), vel);
-  return { from: predictedPos(u, thrust), spawn: add(u.pos, vel), to: marker, cells: line(predictedPos(u, thrust), marker) };
+  return { from: predictedPos(u, thrust), spawn: add(u.pos, vel), to: marker, cells: clearLine(rules, predictedPos(u, thrust), marker) };
 }
 
 export { sub };

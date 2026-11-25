@@ -6,7 +6,12 @@ Quelle: *Spielregeln_Flugvariante.docx* (erstes Regelset) und Daniels Antworten 
 
 ## Spielfeld
 
-Hexagon-Karte mit 14 × 19 Feldern: 19 Reihen, gerade Reihen mit 14 Feldern, ungerade mit 13 (um ein halbes Feld versetzt). Vier grüne Felder (zwei pro Seite) und ein helles Mittelfeld sind nur Orientierungshilfen ohne Einfluss aufs Spiel (später vielleicht Planeten mit Gravitation).
+Hexagon-Karte mit 14 × 19 Feldern: 19 Reihen, gerade Reihen mit 14 Feldern, ungerade mit 13 (um ein halbes Feld versetzt). Die vier grünen Felder (zwei pro Seite) und das helle Mittelfeld sind **Planeten**: sie können weder durchflogen noch durchschossen werden.
+
+- Ein Schiff, dessen Flugweg in einen Planeten führt, prallt auf und ist zerstört.
+- Ein Laser endet vor dem Planeten; Felder dahinter liegen nicht in der Schadenszone.
+- Ein Torpedo, der in einen Planeten fliegt (auch beim Abschuss), geht verloren, ohne zu detonieren.
+- Auf Planeten darf nichts aufgestellt werden.
 
 ## Aufstellung
 
@@ -23,7 +28,7 @@ Jeder Spieler hat zu Beginn **3 Schiffe und 1 Basis**.
 | | Basis | Schiff |
 |---|---|---|
 | Energiepunkte | 6 | 6 |
-| Energieregeneration | +2 / Zug | +1 / Zug |
+| Energieregeneration | +2 / Zug | keine |
 | Schub | 0 (kann sich nicht bewegen) | 1 |
 | Torpedoplätze | – | 2 |
 
@@ -34,7 +39,7 @@ Fliegt ein Schiff auf das Feld einer Basis (auch der eigenen), wird das Schiff z
 ## Allgemeine Regeln
 
 - Treffer verbrauchen Energie, da sich die Schiffe mit einem Energieschild schützen.
-- Laser abzufeuern kostet Energiepunkte.
+- Laser abzufeuern kostet keine Energie (Änderung vom 25.11.2026; vorher 1). Dafür regenerieren Schiffe keine Energie mehr, nur die Basis.
 - Jedes Schiff hat begrenzten Laderaum für Torpedos.
 - Jeder Spieler plant seinen Zug geheim auf seiner Kommandokarte, anschliessend führen beide Spieler alle weiteren Punkte gleichzeitig aus.
 - Wer zuerst **zwei Einheiten** (Basen oder Schiffe) verliert, hat das Spiel verloren. Verlieren beide im selben Zug ihre zweite Einheit, gewinnt, wer mehr verbleibende Energie hat; bei Gleichstand unentschieden.
@@ -51,13 +56,13 @@ Fliegt ein Schiff auf das Feld einer Basis (auch der eigenen), wird das Schiff z
 3. **Schub anwenden** – das Schwung-Plättchen wird um den Schub verschoben.
 4. **Schiffe gemäss Schwung bewegen** – alle Schiffe rücken auf ihr Schwung-Plättchen vor, das Plättchen wird relativ zur Schiffposition gleich wie zuvor ausgelegt. Zwei Schiffe, die so auf dasselbe Feld ziehen, werden beide zerstört.
 5. **Waffen gemäss Schwung bewegen** – wie Schiffe, aber vor und nach dem Bewegen wird geprüft, ob Einheiten in der Schadenszone sind; diese erleiden Schaden. Jeder Laser kann jeder Einheit nur 1× pro Zug Schaden zufügen.
-6. **Energie regenerieren** – alle Einheiten gemäss Typ.
+6. **Energie regenerieren** – die Basis +2, Schiffe nicht.
 7. **Aufräumen** – Plättchen auf den Kommandokarten zurücknehmen, abgefeuerte Laser kommen vom Spielplan.
 
 ## Waffen
 
 ### Laser
-- Schaden 1, Kosten 1 Energie.
+- Schaden 1, keine Energiekosten.
 - Schadenszone: alle Felder in gerader Linie zwischen Schiff und Laser-Marker.
 - Initialer Schwung: Schwung des Schiffs ±1.
 - Verschwindet am Ende des Zuges. Trifft alle Einheiten, die sich in diesem Zug über oder auf ein Feld der Schadenszone bewegen.

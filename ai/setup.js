@@ -1,14 +1,15 @@
-// Starting setup of the AI: base on one of the marked fields of its zone (or any
-// zone hex), ships spread over the width, each with some forward momentum.
+// Starting setup of the AI: base in the back rows of its zone, ships spread over
+// the width, each with some forward momentum (never into a planet).
 import { add, key, dist, toOffset } from "../engine/hex.js";
-import { setupZone, specialCells, inSetupZone, validSetup, defaultSetup } from "../engine/core.js";
+import { setupZone, inSetupZone, validSetup, defaultSetup, isPlanet, moveOk } from "../engine/core.js";
 import { mergeRules } from "../engine/rules.js";
 
 export function chooseSetup(ruleOverrides, p, rng) {
   const rules = mergeRules(ruleOverrides);
-  const zone = setupZone(rules, p);
-  const green = specialCells(rules).green.filter((c) => inSetupZone(rules, p, c));
-  const base = green.length && rng() < 0.8 ? rng.pick(green) : rng.pick(zone);
+  const zone = setupZone(rules, p).filter((c) => !isPlanet(rules, c));
+  // Base: not on the outer columns, mostly in the back rows.
+  const back = zone.filter((c) => { const o = toOffset(c); return o.col > 1 && o.col < rules.cols - 3 && (p === 0 ? o.row >= rules.rows - 2 : o.row <= 1); });
+  const base = rng.pick(back.length ? back : zone);
   const used = new Set([key(base)]);
   const fwd = p === 0 ? [{ q: 0, r: -1 }, { q: 1, r: -1 }] : [{ q: 0, r: 1 }, { q: -1, r: 1 }];
   const ships = [];
@@ -24,7 +25,7 @@ export function chooseSetup(ruleOverrides, p, rng) {
     const steps = rng.int(3);
     for (let k = 0; k < steps; k++) {
       const n = add(mom, rng.pick(fwd));
-      if (inSetupZone(rules, p, n)) mom = n;
+      if (inSetupZone(rules, p, n) && moveOk(rules, pos, { q: n.q - pos.q, r: n.r - pos.r })) mom = n;
     }
     ships.push({ pos, mom });
   }
