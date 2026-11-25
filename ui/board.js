@@ -29,6 +29,11 @@ export class Board {
     const minX = Math.min(...xs) - pad, minY = Math.min(...ys) - pad;
     svg.setAttribute("viewBox", `${minX} ${minY} ${Math.max(...xs) - minX + pad} ${Math.max(...ys) - minY + pad}`);
     const defs = el("defs", {}, svg);
+    for (const [id, a, b] of [["pg-green", "#8fe0cf", "#1f5f55"], ["pg-centre", "#fff6dc", "#9a8a5e"]]) {
+      const g = el("radialGradient", { id, cx: "35%", cy: "35%", r: "70%" }, defs);
+      el("stop", { offset: "0%", "stop-color": a }, g);
+      el("stop", { offset: "100%", "stop-color": b }, g);
+    }
     for (const [id, color] of [["arrow0", "var(--p0)"], ["arrow1", "var(--p1)"], ["arrowW", "var(--ink)"]]) {
       const m = el("marker", { id, viewBox: "0 0 10 10", refX: 7, refY: 5, markerWidth: 4, markerHeight: 4, orient: "auto-start-reverse" }, defs);
       el("path", { d: "M0,0 L10,5 L0,10 z", fill: color }, m);
@@ -46,6 +51,12 @@ export class Board {
     for (const c of cells) {
       const cls = green.has(key(c)) ? "cell green" : centre.has(key(c)) ? "cell centre" : "cell";
       el("polygon", { points: poly(c, SIZE - 0.6), class: cls }, this.gCells);
+      if (rules.planets && cls !== "cell") {
+        // Planets: a globe on the coloured hex.
+        const p = px(c);
+        el("circle", { cx: p.x, cy: p.y, r: SIZE * 0.78, class: `planet ${cls.split(" ")[1]}` }, this.gCells);
+        el("circle", { cx: p.x - SIZE * 0.25, cy: p.y - SIZE * 0.25, r: SIZE * 0.3, class: "planet-shine" }, this.gCells);
+      }
       const hit = el("polygon", { points: poly(c), class: "cell-hit" }, this.gHit);
       hit.addEventListener("click", () => this.onCell && this.onCell(c));
       this.cellEls.set(key(c), hit);

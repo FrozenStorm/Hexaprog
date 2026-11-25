@@ -54,29 +54,92 @@ export function specialCells(rules) {
 }
 
 // ---------------------------------------------------------------------------
+// Planets: the coloured hexes block ships, lasers and torpedoes
+// ---------------------------------------------------------------------------
+
+const PLANETS = new WeakMap();
+/** Set of hex keys that are planets (empty when rules.planets is off). */
+export function planetSet(rules) {
+  let set = PLANETS.get(rules);
+  if (!set) {
+    const sp = specialCells(rules);
+    set = new Set(rules.planets ? [...sp.green, ...sp.centre].map(key) : []);
+    PLANETS.set(rules, set);
+  }
+  return set;
+}
+export const isPlanet = (rules, a) => planetSet(rules).has(key(a));
+
+/** The hexes of line(a, b) up to (not including) the first planet. */
+export function clearLine(rules, a, b) {
+  const out = [];
+  for (const c of line(a, b)) {
+    if (isPlanet(rules, c)) break;
+    out.push(c);
+  }
+  return out;
+}
+
+/** Can a unit at pos fly with momentum vel without leaving the board or hitting a planet? */
+export function moveOk(rules, pos, vel) {
+  const target = add(pos, vel);
+  if (!onBoard(rules, target)) return false;
+  const p = planetSet(rules);
+  return !line(pos, target).some((c) => p.has(key(c)));
+}
+
+// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
-export function newGame(ruleOverrides) {
+/** Rows a player may set up in: the bottom rows for player 1, the top rows for player 2. */
+export function inSetupZone(rules, p, a) {
+  if (!onBoard(rules, a)) return false;
+  const { row } = toOffset(a);
+  return p === 0 ? row >= rules.rows - rules.setupRows : row < rules.setupRows;
+}
+export const setupZone = (rules, p) => boardCells(rules).filter((c) => inSetupZone(rules, p, c));
+
+/**
+ * A setup: { base: hex, ships: [{ pos: hex, mom: hex }, ...] }. Every unit and every
+ * momentum marker lies in the own zone, units on different hexes. Momentum = mom - pos.
+ */
+export function defaultSetup(ruleOverrides, p) {
   const rules = mergeRules(ruleOverrides);
-  const units = [];
   const base1 = toAxial(rules.base1.col, rules.base1.row);
   const centre = specialCells(rules).centre[0];
-  // Ships start on the free neighbours of the base that are closest to the centre.
+  // Ships on the neighbours of the base that are closest to the centre, momentum 0.
   const around = diskCached(1).filter((d) => len(d) === 1).map((d) => add(base1, d))
-    .filter((c) => onBoard(rules, c))
+    .filter((c) => inSetupZone(rules, 0, c) && !isPlanet(rules, c))
     .sort((a, b) => dist(a, centre) - dist(b, centre) || toOffset(a).col - toOffset(b).col);
-  const ships1 = [];
-  for (let i = 0; i < rules.shipsPerPlayer; i++) {
-    ships1.push(around[i] || add(base1, { q: 0, r: -(2 + i) }));
-  }
-  ships1.sort((a, b) => toOffset(a).col - toOffset(b).col || a.r - b.r);
+  const zone = setupZone(rules, 0).filter((c) => !eq(c, base1) && !isPlanet(rules, c) && !around.some((x) => eq(x, c)));
+  const ships = [];
+  for (let i = 0; i < rules.shipsPerPlayer; i++) ships.push(around[i] || zone[i]);
+  ships.sort((a, b) => toOffset(a).col - toOffset(b).col || a.r - b.r);
+  const tf = (c) => (p === 0 ? c : mirror(rules, c));
+  return { base: tf(base1), ships: ships.map((c) => ({ pos: tf(c), mom: tf(c) })) };
+}
+
+export function validSetup(ruleOverrides, p, setup) {
+  const rules = mergeRules(ruleOverrides);
+  if (!setup || !setup.base || !Array.isArray(setup.ships) || setup.ships.length !== rules.shipsPerPlayer) return false;
+  const cells = [setup.base, ...setup.ships.map((x) => x && x.pos)];
+  const hexOk = (c) => c && Number.isInteger(c.q) && Number.isInteger(c.r) && inSetupZone(rules, p, c);
+  if (!cells.every(hexOk) || !setup.ships.every((x) => hexOk(x.mom))) return false;
+  if (cells.some((c) => isPlanet(rules, c))) return false;
+  return new Set(cells.map(key)).size === cells.length;
+}
+
+/** New game. `setups` are the two players' starting setups (default setup where missing or invalid). */
+export function newGame(ruleOverrides, setups = []) {
+  const rules = mergeRules(ruleOverrides);
+  const units = [];
   for (const owner of [0, 1]) {
-    const tf = (c) => (owner === 0 ? c : mirror(rules, c));
-    units.push({ id: `p${owner}b`, owner, kind: "base", n: 0, pos: tf(base1), vel: { ...ZERO },
+    const su = validSetup(rules, owner, setups[owner]) ? setups[owner] : defaultSetup(rules, owner);
+    units.push({ id: `p${owner}b`, owner, kind: "base", n: 0, pos: { ...su.base }, vel: { ...ZERO },
       energy: rules.base.energy, torpedoes: 0, alive: true });
-    ships1.forEach((c, i) => units.push({ id: `p${owner}s${i + 1}`, owner, kind: "ship", n: i + 1, pos: tf(c),
-      vel: { ...ZERO }, energy: rules.ship.energy, torpedoes: rules.ship.torpedoes, alive: true }));
+    su.ships.forEach((x, i) => units.push({ id: `p${owner}s${i + 1}`, owner, kind: "ship", n: i + 1, pos: { ...x.pos },
+      vel: sub(x.mom, x.pos), energy: rules.ship.energy, torpedoes: rules.ship.torpedoes, alive: true }));
   }
   return { rules, turn: 1, units, weapons: [], losses: [0, 0], over: false, winner: null, endReason: null, nextId: 1 };
 }
@@ -103,12 +166,25 @@ export const emptyOrders = () => ({ units: {}, torps: {} });
 const inDisk = (v, n) => v && Number.isInteger(v.q) && Number.isInteger(v.r) && len(v) <= n;
 
 export const canFireLaser = (s, u) => u.alive && u.kind === "ship" && u.energy >= s.rules.laser.cost;
-export const canLaunch = (s, u) => u.alive && u.kind === "ship" && u.torpedoes > 0 && torpsOf(s, u.id).length < s.rules.torpedo.perShip;
+export const canLaunch = (s, u) => u.alive && u.kind === "ship" && u.torpedoes > 0 && (!s.rules.torpedo.perShip || torpsOf(s, u.id).length < s.rules.torpedo.perShip);
 
 /** Weapon vectors (relative to the ship's momentum marker) that are allowed. A weapon must leave the ship. */
 export function weaponOptions(s, u, kind) {
   const spread = kind === "laser" ? s.rules.laser.spread : s.rules.torpedo.spread;
   return diskCached(spread).filter((d) => len(add(u.vel, d)) > 0);
+}
+
+/**
+ * Thrust options of a torpedo in flight. Torpedos only have forward thrust: the
+ * momentum marker may only move into the half in front of the current flight
+ * direction (angle below 90 degrees), or stay.
+ */
+export function torpThrustOptions(s, w) {
+  const all = diskCached(s.rules.torpedo.thrust);
+  if (!s.rules.torpedo.forwardOnly || len(w.vel) === 0) return all;
+  // Dot product in screen space (pointy-top hexes): x = q + r/2, y = r * sqrt(3)/2.
+  const dot = (a, b) => (a.q + a.r / 2) * (b.q + b.r / 2) + 0.75 * a.r * b.r;
+  return all.filter((d) => len(d) === 0 || dot(d, w.vel) > 1e-9);
 }
 
 /** Keep only the legal parts of a player's orders. */
@@ -126,7 +202,7 @@ export function sanitizeOrders(s, owner, orders) {
   for (const w of s.weapons) {
     if (w.kind !== "torpedo" || w.owner !== owner) continue;
     const t = o.torps && o.torps[w.id];
-    if (inDisk(t, s.rules.torpedo.thrust)) out.torps[w.id] = { q: t.q, r: t.r };
+    if (t && torpThrustOptions(s, w).some((d) => eq(d, t))) out.torps[w.id] = { q: t.q, r: t.r };
   }
   return out;
 }
@@ -176,8 +252,12 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
       u.torpedoes -= 1;
       const vel = add(u.vel, o.launch);
       const id = `T${s.nextId++}`;
-      s.weapons.push({ id, kind: "torpedo", owner: u.owner, from: u.id, pos: add(u.pos, vel), vel });
-      fresh.add(id);
+      const spawn = add(u.pos, vel);
+      // A torpedo launched into a planet is lost.
+      if (!line(u.pos, spawn).some((c) => isPlanet(R, c))) {
+        s.weapons.push({ id, kind: "torpedo", owner: u.owner, from: u.id, pos: spawn, vel });
+        fresh.add(id);
+      }
       stats.launches[u.owner]++;
     }
   }
@@ -210,7 +290,16 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     if (u.kind === "base") { paths.set(u.id, [u.pos]); continue; }
     const target = add(u.pos, u.vel);
     let path = line(u.pos, target);
-    if (!onBoard(R, target)) {
+    const hitPlanet = path.findIndex((c, i) => i > 0 && isPlanet(R, c));
+    const leaves = path.findIndex((c) => !onBoard(R, c));
+    if (hitPlanet > 0 && (leaves < 0 || hitPlanet < leaves)) {
+      // Crashes into a planet: the ship is lost where it hits.
+      const at = path[hitPlanet];
+      path = path.slice(0, hitPlanet);
+      u.pos = path[path.length - 1];
+      destroy(u, "planet");
+      moveFx.push({ type: "lost", id: u.id, pos: at });
+    } else if (!onBoard(R, target)) {
       if (R.edge === "stop") {
         let i = 0;
         while (i + 1 < path.length && onBoard(R, path[i + 1])) i++;
@@ -227,7 +316,8 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     }
     paths.set(u.id, path);
   }
-  // Collisions: two ships ending on the same hex are both destroyed (optionally a ship on a base too).
+  // Collisions: two ships ending on the same hex are both destroyed. A ship flying onto a
+  // base is destroyed and rams the base (damage), depending on rules.baseCollision.
   const byHex = new Map();
   for (const u of s.units) {
     if (!u.alive) continue;
@@ -238,10 +328,20 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
   for (const group of byHex.values()) {
     if (group.length < 2) continue;
     const ships = group.filter((u) => u.kind === "ship");
-    const hasBase = group.some((u) => u.kind === "base");
-    if (ships.length >= 2 || (hasBase && R.baseCollision === "destroyBoth")) {
-      const own = group.every((u) => u.owner === group[0].owner);
-      for (const u of group) destroy(u, own ? "collision-own" : "collision");
+    const base = group.find((u) => u.kind === "base");
+    if (base && R.baseCollision !== "ignore") {
+      for (const u of ships) destroy(u, u.owner === base.owner ? "ram-own" : "ram");
+      if (R.baseCollision === "destroyBoth") destroy(base, "ram");
+      else {
+        base.energy -= R.base.ramDamage * ships.length;
+        moveFx.push({ type: "damage", id: base.id, amount: R.base.ramDamage * ships.length });
+        if (R.destroyWhen === "zero" ? base.energy <= 0 : base.energy < 0) destroy(base, "ram");
+        base.energy = Math.max(0, base.energy);
+      }
+      moveFx.push({ type: "collision", pos: { ...group[0].pos } });
+    } else if (ships.length >= 2) {
+      const own = ships.every((u) => u.owner === ships[0].owner);
+      for (const u of ships) destroy(u, own ? "collision-own" : "collision");
       moveFx.push({ type: "collision", pos: { ...group[0].pos } });
     }
   }
@@ -276,21 +376,26 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     if (w.kind === "laser") {
       const ship = unitById(s, w.from);
       const zone = new Set();
-      for (const c of line(ship.pos, w.pos)) zone.add(key(c));
+      // Planets block the beam: the zone ends in front of the first planet.
+      const z1 = clearLine(R, ship.pos, w.pos);
+      for (const c of z1) zone.add(key(c));
       const before = { ...w.pos };
       w.pos = add(w.pos, w.vel);
-      for (const c of line(ship.pos, w.pos)) zone.add(key(c));
+      const z2 = clearLine(R, ship.pos, w.pos);
+      for (const c of z2) zone.add(key(c));
       for (const u of alive) {
         if (u.id === ship.id) continue;
         if (u.owner === w.owner && !R.friendlyFire) continue;
         const path = paths.get(u.id) || [u.pos];
         if (path.some((c) => zone.has(key(c)))) hit(u, R.laser.damage, "laser");
       }
-      fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...w.pos } });
+      fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...(z2[z2.length - 1] || ship.pos) } });
     } else {
       if (enemyNear(w, w.pos)) { detonate(w, w.pos); continue; }
       const target = add(w.pos, w.vel);
+      const crash = line(w.pos, target).find((c, i) => i > 0 && isPlanet(R, c));
       w.pos = target;
+      if (crash) { w.gone = true; fx.push({ type: "fizzle", pos: { ...crash } }); continue; }
       if (!onBoard(R, target)) { w.gone = true; fx.push({ type: "fizzle", pos: { ...target } }); continue; }
       if (alive.some((u) => u.owner === w.owner && eq(u.pos, target)) || enemyNear(w, target)) detonate(w, target);
     }
@@ -313,16 +418,19 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
 
   // Game end.
   const lost = [0, 1].map((p) => s.losses[p] >= R.lossLimit);
+  const energy = (p) => liveUnits(s, p).reduce((a, u) => a + u.energy, 0);
   if (lost[0] || lost[1]) {
     s.over = true;
-    s.winner = lost[0] && lost[1] ? "draw" : lost[0] ? 1 : 0;
     s.endReason = "losses";
+    if (lost[0] && lost[1]) {
+      // Both lost in the same turn: more remaining energy wins, else a draw.
+      s.winner = energy(0) === energy(1) ? "draw" : energy(0) > energy(1) ? 0 : 1;
+    } else s.winner = lost[0] ? 1 : 0;
   } else if (s.turn >= R.maxTurns) {
     s.over = true;
     s.endReason = "timeout";
     s.winner = "draw";
     if (R.timeout === "points") {
-      const energy = (p) => liveUnits(s, p).reduce((a, u) => a + u.energy, 0);
       if (s.losses[0] !== s.losses[1]) s.winner = s.losses[0] < s.losses[1] ? 0 : 1;
       else if (energy(0) !== energy(1)) s.winner = energy(0) > energy(1) ? 0 : 1;
     }
@@ -337,10 +445,10 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
 export const predictedPos = (u, thrust) => add(add(u.pos, u.vel), thrust || ZERO);
 
 /** Laser zone preview: line from the ship's new position to the laser marker after its move. */
-export function laserPreview(u, laserVec, thrust) {
+export function laserPreview(rules, u, laserVec, thrust) {
   const vel = add(u.vel, laserVec);
   const marker = add(add(u.pos, vel), vel);
-  return { from: predictedPos(u, thrust), spawn: add(u.pos, vel), to: marker, cells: line(predictedPos(u, thrust), marker) };
+  return { from: predictedPos(u, thrust), spawn: add(u.pos, vel), to: marker, cells: clearLine(rules, predictedPos(u, thrust), marker) };
 }
 
 export { sub };

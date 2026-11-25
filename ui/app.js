@@ -2,13 +2,15 @@
 // (against the AI, duel on one device, AI vs AI, online, replay).
 import { add, eq, key, len, diskCached, line } from "../engine/hex.js";
 import {
-  newGame, resolveTurn, liveShips, unitById, torpsOf, emptyOrders, canFireLaser, canLaunch,
+  newGame, resolveTurn, torpThrustOptions, inSetupZone, isPlanet, clearLine, setupZone, defaultSetup, validSetup, liveShips, unitById, torpsOf, emptyOrders, canFireLaser, canLaunch,
   weaponOptions, maxEnergy, PLAYER_NAMES,
 } from "../engine/core.js";
 import { Board } from "./board.js";
 import { LEVEL_NAMES } from "../ai/ai.js";
+import { chooseSetup } from "../ai/setup.js";
+import { makeRng } from "../ai/rng.js";
 import { openLab } from "./lab.js";
-import { openLobby, submitOnlineOrders, leaveOnlineGame } from "../net/online.js";
+import { openLobby, submitOnlineOrders, submitOnlineSetup, leaveOnlineGame } from "../net/online.js";
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -18,8 +20,8 @@ const store = {
 };
 
 const TOOL_NAMES = { thrust: "Schub", laser: "Laser", launch: "Torpedo", steer: "Steuern" };
-const CAUSE = { laser: "Laser", torpedo: "Torpedo", "laser+torpedo": "Laser und Torpedo", "torpedo+laser": "Torpedo und Laser",
-  collision: "Kollision", "collision-own": "Kollision mit eigenem Schiff", edge: "Spielfeldrand verlassen" };
+const CAUSE = { ram: "Basis gerammt", "ram-own": "eigene Basis gerammt", laser: "Laser", torpedo: "Torpedo", "laser+torpedo": "Laser und Torpedo", "torpedo+laser": "Torpedo und Laser",
+  collision: "Kollision", "collision-own": "Kollision mit eigenem Schiff", edge: "Spielfeldrand verlassen", planet: "auf Planet geprallt" };
 
 const G = {
   mode: null,        // ai | duel | watch | online | replay
@@ -81,8 +83,149 @@ export function startGame(mode, opts = {}) {
   G.board = new Board($("board"), G.state.rules, { onCell });
   ["menu", "gameover", "handover", "lobby", "lab"].forEach((id) => $(id).classList.remove("show"));
   $("menu-resume").style.display = "";
+  G.phase = "play";
+  if (opts.state) { render(); return; }
+  // Setup: every player places base, ships and momentum markers secretly in the own zone.
+  G.phase = "setup";
+  const rng = makeRng(Date.now());
+  G.setups = [0, 1].map((p) => (G.humans[p] ? null : chooseSetup(G.state.rules, p, rng)));
+  if (mode === "online") G.setups = [null, null];
+  G.planner = mode === "online" ? opts.me : G.humans[0] ? 0 : 1;
+  newDraft();
+  if (!G.humans[0] && !G.humans[1]) beginPlay();
+  else render();
+}
+
+// ---------------------------------------------------------------------------
+// Setup phase
+// ---------------------------------------------------------------------------
+
+/** Items placed in order: base, then each ship followed by its momentum marker. */
+function setupItems() {
+  const items = [{ kind: "base", label: "Basis" }];
+  for (let i = 0; i < G.state.rules.shipsPerPlayer; i++) {
+    items.push({ kind: "ship", i, label: `Schiff ${i + 1}` }, { kind: "mom", i, label: `Schwung ${i + 1}` });
+  }
+  return items;
+}
+function newDraft() {
+  G.draft = { base: null, ships: Array.from({ length: G.state.rules.shipsPerPlayer }, () => ({ pos: null, mom: null })) };
+  G.setupStep = 0;
+}
+const draftGet = (it) => (it.kind === "base" ? G.draft.base : it.kind === "ship" ? G.draft.ships[it.i].pos : G.draft.ships[it.i].mom);
+function draftSet(it, c) {
+  if (it.kind === "base") G.draft.base = c;
+  else if (it.kind === "ship") G.draft.ships[it.i].pos = c;
+  else G.draft.ships[it.i].mom = c;
+}
+const draftComplete = () => setupItems().every((it) => draftGet(it));
+
+function setupView() {
+  const p = G.planner;
+  const units = [];
+  if (G.draft.base) units.push({ id: `p${p}b`, pos: G.draft.base, vel: { q: 0, r: 0 }, energy: G.state.rules.base.energy, torpedoes: 0, alive: true });
+  G.draft.ships.forEach((x, i) => {
+    if (!x.pos) return;
+    const vel = x.mom ? { q: x.mom.q - x.pos.q, r: x.mom.r - x.pos.r } : { q: 0, r: 0 };
+    units.push({ id: `p${p}s${i + 1}`, pos: x.pos, vel, energy: G.state.rules.ship.energy, torpedoes: G.state.rules.ship.torpedoes, alive: true });
+  });
+  return { units, weapons: [] };
+}
+
+function onSetupCell(c) {
+  if (!inSetupZone(G.state.rules, G.planner, c)) return;
+  const items = setupItems();
+  const it = items[G.setupStep];
+  if (!it) return;
+  if (it.kind !== "mom" && isPlanet(G.state.rules, c)) return;
+  if (it.kind !== "mom") {
+    // Units need their own hex.
+    const taken = [G.draft.base, ...G.draft.ships.map((x) => x.pos)].some((x, k) => x && eq(x, c) && !(it.kind === "base" ? k === 0 : k === it.i + 1));
+    if (taken) return;
+  }
+  draftSet(it, c);
+  if (it.kind === "ship" && !G.draft.ships[it.i].mom) G.draft.ships[it.i].mom = c;
+  const next = items.findIndex((x, k) => k > G.setupStep && (!draftGet(x) || (x.kind === "mom" && eq(draftGet(x), G.draft.ships[x.i].pos))));
+  G.setupStep = next >= 0 ? next : items.findIndex((x) => !draftGet(x));
+  if (G.setupStep < 0) G.setupStep = items.length;
   render();
-  if (mode === "watch") scheduleWatch();
+}
+
+function renderSetupSide(side) {
+  const p = G.planner;
+  const items = setupItems();
+  const h = document.createElement("div");
+  h.className = "hint";
+  h.innerHTML = `<b class="p${p}c">${playerLabel(p)}</b>: Stelle verdeckt deine Basis, deine Schiffe und ihre Schwung-Marker in deiner Zone auf (${p === 0 ? "unterste" : "oberste"} ${G.state.rules.setupRows} Reihen). Der Schwung-Marker zeigt, wohin das Schiff im ersten Zug fliegt; auf dem Schiff selbst heisst Schwung 0.`;
+  side.appendChild(h);
+  const card = document.createElement("div");
+  card.className = "card";
+  const grid = document.createElement("div");
+  grid.className = "tools";
+  items.forEach((it, k) => {
+    const b = document.createElement("button");
+    b.textContent = it.label;
+    if (draftGet(it)) b.classList.add("set");
+    if (k === G.setupStep) b.classList.add("on");
+    b.disabled = it.kind === "mom" && !G.draft.ships[it.i].pos;
+    b.onclick = () => { G.setupStep = k; render(); };
+    grid.appendChild(b);
+  });
+  card.appendChild(grid);
+  side.appendChild(card);
+  const row = document.createElement("div");
+  row.className = "row";
+  const mk = (label, fn, primary, disabled) => {
+    const b = document.createElement("button");
+    b.textContent = label; b.onclick = fn; b.disabled = !!disabled;
+    if (primary) b.className = "primary";
+    row.appendChild(b);
+  };
+  const load = (su) => { G.draft = JSON.parse(JSON.stringify(su)); G.setupStep = items.length; render(); };
+  mk("Standard", () => load(defaultSetup(G.state.rules, p)));
+  mk("Zufällig", () => load(chooseSetup(G.state.rules, p, makeRng(Date.now()))));
+  mk("Leeren", () => { newDraft(); render(); });
+  side.appendChild(row);
+  const done = document.createElement("button");
+  done.className = "primary";
+  done.textContent = "Aufstellung fertig";
+  done.disabled = !draftComplete() || !validSetup(G.state.rules, p, G.draft);
+  done.onclick = confirmSetup;
+  side.appendChild(done);
+}
+
+function confirmSetup() {
+  const p = G.planner;
+  const su = JSON.parse(JSON.stringify(G.draft));
+  if (!validSetup(G.state.rules, p, su)) return;
+  G.setups[p] = su;
+  if (G.mode === "online") {
+    G.online.submitted = true;
+    render();
+    submitOnlineSetup(su);
+    return;
+  }
+  const other = 1 - p;
+  if (!G.setups[other] && G.humans[other]) {
+    G.planner = other;
+    newDraft();
+    $("handover-title").textContent = `${PLAYER_NAMES[other]} stellt auf`;
+    $("handover-text").textContent = `Gib das Gerät weiter. Die Aufstellung von ${PLAYER_NAMES[p]} bleibt verdeckt.`;
+    $("handover").classList.add("show");
+    render();
+    return;
+  }
+  beginPlay();
+}
+
+function beginPlay() {
+  G.state = newGame(G.ruleOverrides, G.setups);
+  G.phase = "play";
+  G.planner = G.mode === "online" ? G.online.me : 0;
+  if (G.online) G.online.submitted = false;
+  G.sel = null;
+  render();
+  if (G.mode === "watch") scheduleWatch();
 }
 
 function playerLabel(p) {
@@ -102,6 +245,18 @@ function liveView(s) {
 
 function render() {
   const s = G.state;
+  if (G.phase === "setup") {
+    const hidden = G.online && G.online.submitted;
+    G.board.show(hidden ? { units: [], weapons: [] } : setupView(), G.info);
+    G.board.clearOverlay();
+    if (!hidden) G.board.options(setupZone(s.rules, G.planner).filter((c) => !isPlanet(s.rules, c)), "setup", null);
+    const side = $("side");
+    side.innerHTML = "";
+    if (hidden) side.innerHTML = `<div class="hint">Warte auf die Aufstellung von ${G.online.names[1 - G.online.me]}…</div>`;
+    else renderSetupSide(side);
+    $("status").textContent = `Aufstellung · ${playerLabel(G.planner)}`;
+    return;
+  }
   G.board.show(liveView(s), G.info);
   for (const [id, g] of G.board.unitEls) g.classList.toggle("sel", !!(G.sel && G.sel.id === id));
   renderOverlay();
@@ -126,7 +281,7 @@ function toolOptions() {
     const w = s.weapons.find((x) => x.id === G.sel.torp);
     if (!w) return [];
     const m = add(w.pos, w.vel);
-    return diskCached(s.rules.torpedo.thrust).map((d) => ({ cell: add(m, d), vec: d }));
+    return torpThrustOptions(s, w).map((d) => ({ cell: add(m, d), vec: d }));
   }
   return [];
 }
@@ -149,7 +304,7 @@ function renderOverlay() {
     const vel = add(u.vel, o.thrust || { q: 0, r: 0 });
     if (o.laser) {
       const lv = add(u.vel, o.laser);
-      b.zone(line(end, add(add(u.pos, lv), lv)), "laser");
+      b.zone(clearLine(s.rules, end, add(add(u.pos, lv), lv)), "laser");
     }
     b.arrow(u.pos, end, `p${p}`, p);
     if (!eq(u.pos, end)) b.ghost(end, `p${p}`);
@@ -227,16 +382,17 @@ function shipCard(u, p) {
   };
   mk("thrust", "Schub", true, o.thrust && len(o.thrust) > 0);
   mk("laser", "Laser", canFireLaser(s, u), !!o.laser);
-  if (torps.length && !canLaunch(s, u)) mk("steer", "Torpedo", true, !!(G.orders[p].torps[torps[0].id] && len(G.orders[p].torps[torps[0].id])), torps[0].id);
-  else mk("launch", "Torpedo", canLaunch(s, u), !!o.launch);
+  mk("launch", "Torpedo", canLaunch(s, u), !!o.launch);
   card.appendChild(tools);
-  if (torps.length && canLaunch(s, u)) {
+  if (torps.length) {
     const t2 = document.createElement("div");
     t2.className = "tools";
     torps.forEach((w, i) => {
       const b = document.createElement("button");
       b.textContent = `Torpedo ${i + 1} steuern`;
       if (G.sel && G.sel.tool === "steer" && G.sel.torp === w.id) b.classList.add("on");
+      const t = G.orders[p].torps[w.id];
+      if (t && len(t)) b.classList.add("set");
       b.onclick = () => select(u.id, "steer", w.id);
       t2.appendChild(b);
     });
@@ -279,6 +435,7 @@ function select(id, tool, torp) {
 }
 
 function onCell(c) {
+  if (G.phase === "setup") { if (!(G.online && G.online.submitted)) onSetupCell(c); return; }
   if (!planningHuman()) return;
   const p = G.planner;
   const opt = toolOptions().find((o) => eq(o.cell, c));
@@ -423,7 +580,7 @@ function renderWatchSide(side) {
 
 /** Replay of an AI Lab game: { rules, levels, orders: [[o1, o2], ...] }. */
 export function startReplay(replay) {
-  const states = [newGame(replay.rules)];
+  const states = [newGame(replay.rules, replay.setups || [])];
   for (const o of replay.orders) states.push(resolveTurn(states[states.length - 1], o, { frames: false }).state);
   startGame("replay", { replay: { ...replay, states, idx: 0 }, levels: replay.levels, rules: replay.rules, state: states[0] });
 }
@@ -451,6 +608,12 @@ function renderReplaySide(side) {
 
 export const onlineHooks = {
   start({ me, names, rules }) { startGame("online", { me, names, rules }); },
+  /** Both setups are known: the game begins. */
+  bothSetups(setups) {
+    if (G.mode !== "online" || G.phase !== "setup") return;
+    G.setups = setups;
+    beginPlay();
+  },
   /** Both players' orders of the current turn are known. */
   async bothOrders(turn, orders) {
     if (G.mode !== "online" || turn !== G.state.turn || G.busy) return;

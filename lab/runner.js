@@ -3,6 +3,7 @@
 import { newGame, resolveTurn } from "../engine/core.js";
 import { chooseOrders } from "../ai/ai.js";
 import { makeRng } from "../ai/rng.js";
+import { chooseSetup } from "../ai/setup.js";
 
 /**
  * game = { id, variant, rules (overrides), levels: [lvl1, lvl2], seed }
@@ -10,13 +11,14 @@ import { makeRng } from "../ai/rng.js";
  */
 export function playGame(game) {
   const rng = makeRng(game.seed);
-  let s = newGame(game.rules);
-  const replay = { rules: s.rules, levels: game.levels, seed: game.seed, orders: [] };
+  const setups = [0, 1].map((p) => chooseSetup(game.rules, p, rng));
+  let s = newGame(game.rules, setups);
+  const replay = { rules: s.rules, setups, levels: game.levels, seed: game.seed, orders: [] };
   const row = {
     id: game.id, variant: game.variant, level1: game.levels[0], level2: game.levels[1], seed: game.seed,
     winner: null, turns: 0, endReason: null, losses1: 0, losses2: 0,
     lasers1: 0, lasers2: 0, torpedoes1: 0, torpedoes2: 0,
-    byLaser: 0, byTorpedo: 0, byCollision: 0, byEdge: 0, ownLosses: 0,
+    byLaser: 0, byTorpedo: 0, byCollision: 0, byEdge: 0, byPlanet: 0, ownLosses: 0,
   };
   while (!s.over) {
     const o = [0, 1].map((p) => chooseOrders(s, p, { level: game.levels[p], rng }));
@@ -27,9 +29,10 @@ export function playGame(game) {
     for (const d of r.stats.destroyed) {
       if (d.cause.includes("laser")) row.byLaser++;
       if (d.cause.includes("torpedo")) row.byTorpedo++;
-      if (d.cause.startsWith("collision")) row.byCollision++;
-      if (d.cause === "collision-own") row.ownLosses++;
+      if (d.cause.startsWith("collision") || d.cause.startsWith("ram")) row.byCollision++;
+      if (d.cause === "collision-own" || d.cause === "ram-own") row.ownLosses++;
       if (d.cause === "edge") row.byEdge++;
+      if (d.cause === "planet") row.byPlanet++;
     }
     s = r.state;
   }
@@ -78,7 +81,7 @@ export function summarize(rows) {
       lasers: avg((r) => r.lasers1 + r.lasers2),
       torpedoes: avg((r) => r.torpedoes1 + r.torpedoes2),
       byLaser: avg((r) => r.byLaser), byTorpedo: avg((r) => r.byTorpedo),
-      byCollision: avg((r) => r.byCollision), ownCollision: avg((r) => r.ownLosses), byEdge: avg((r) => r.byEdge),
+      byCollision: avg((r) => r.byCollision), ownCollision: avg((r) => r.ownLosses), byEdge: avg((r) => r.byEdge), byPlanet: avg((r) => r.byPlanet || 0),
     };
   });
 }

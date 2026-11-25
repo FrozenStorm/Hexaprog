@@ -60,7 +60,7 @@ if (!isMainThread) {
     console.log(`${sum.variant}: ${sum.games} Spiele, Sieg Spieler 1 ${(sum.win1 * 100).toFixed(0)}%, Spieler 2 ${(sum.win2 * 100).toFixed(0)}%, ` +
       `unentschieden ${(sum.draw * 100).toFixed(0)}%, ${A !== B ? `${A} gewinnt ${(winsA / sum.games * 100).toFixed(0)}%, ` : ""}` +
       `Ø ${sum.turns.toFixed(1)} Züge, Zeitlimit ${(sum.timeouts * 100).toFixed(0)}%, ` +
-      `Verluste/Spiel: Laser ${sum.byLaser.toFixed(2)} Torpedo ${sum.byTorpedo.toFixed(2)} Kollision ${sum.byCollision.toFixed(2)} (eigene ${sum.ownCollision.toFixed(2)}) Rand ${sum.byEdge.toFixed(2)}`);
+      `Verluste/Spiel: Laser ${sum.byLaser.toFixed(2)} Torpedo ${sum.byTorpedo.toFixed(2)} Kollision ${sum.byCollision.toFixed(2)} (eigene ${sum.ownCollision.toFixed(2)}) Rand ${sum.byEdge.toFixed(2)} Planet ${sum.byPlanet.toFixed(2)}`);
   }
   console.log(`${((Date.now() - t0) / 1000).toFixed(1)} s`);
   const csv = arg("csv", null);

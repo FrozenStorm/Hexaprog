@@ -4,6 +4,7 @@
 import { DEFAULT_RULES, RULE_FIELDS, setRule } from "../engine/rules.js";
 import { expandGames, summarize, toCSV } from "../lab/runner.js";
 import { LEVEL_NAMES } from "../ai/ai.js";
+import { makeZip } from "../lab/zip.js";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "hexaprog.lab.config";
@@ -23,7 +24,7 @@ const lab = {
 
 function defaultConfig() {
   return {
-    levels: ["medium", "medium"], games: 40, swapSides: true, seed: 1,
+    levels: ["medium", "medium"], games: 40, swapSides: true, seed: 1, gif: true,
     variants: [{ name: "Standard", rules: JSON.parse(JSON.stringify(DEFAULT_RULES)) }],
   };
 }
@@ -33,6 +34,7 @@ function loadConfig() {
     if (c && c.variants) {
       // New rule fields get their default value.
       c.variants.forEach((v) => { v.rules = { ...JSON.parse(JSON.stringify(DEFAULT_RULES)), ...v.rules }; });
+      if (c.gif === undefined) c.gif = true;
       return c;
     }
   } catch (e) { /* ignore */ }
@@ -63,6 +65,7 @@ function render() {
       <label class="hint">Spiele pro Variante <input id="lab-games" type="number" min="1" max="5000" value="${c.games}" style="width:80px"></label>
       <label class="hint"><input id="lab-swap" type="checkbox"${c.swapSides ? " checked" : ""}> Seiten tauschen</label>
       <label class="hint">Seed <input id="lab-seed" type="number" value="${c.seed}" style="width:70px"></label>
+      <label class="hint"><input id="lab-gif" type="checkbox"${c.gif ? " checked" : ""}> Video (GIF) pro Spiel speichern</label>
     </div>
     <div class="lab-variants" id="lab-variants"></div>
     <div class="row">
@@ -93,6 +96,7 @@ function render() {
   $("lab-games").onchange = (e) => { c.games = Math.max(1, Math.min(5000, +e.target.value || 1)); saveConfig(); };
   $("lab-swap").onchange = (e) => { c.swapSides = e.target.checked; saveConfig(); };
   $("lab-seed").onchange = (e) => { c.seed = +e.target.value || 1; saveConfig(); };
+  $("lab-gif").onchange = (e) => { c.gif = e.target.checked; saveConfig(); };
   body.querySelectorAll("[data-vname]").forEach((i) => { i.onchange = () => { c.variants[+i.dataset.vname].name = i.value || `Variante ${+i.dataset.vname + 1}`; saveConfig(); }; });
   body.querySelectorAll("[data-vdel]").forEach((b) => { b.onclick = () => { c.variants.splice(+b.dataset.vdel, 1); saveConfig(); render(); }; });
   body.querySelectorAll("[data-vdup]").forEach((b) => {
@@ -124,7 +128,7 @@ function run() {
   // Names must be unique for the statistics.
   const seen = new Map();
   c.variants.forEach((v) => { const n = seen.get(v.name) || 0; seen.set(v.name, n + 1); if (n) v.name = `${v.name} ${n + 1}`; });
-  const games = expandGames(c);
+  const games = expandGames(c).map((g) => ({ ...g, gif: !!c.gif }));
   lab.results = [];
   lab.total = games.length;
   lab.running = true;
@@ -171,17 +175,18 @@ function renderResults() {
   const lv = (r) => `${LEVEL_NAMES[r.level1]} – ${LEVEL_NAMES[r.level2]}`;
   res.innerHTML = `
     <table><thead><tr><th>Variante</th><th>Spiele</th><th>Sieg S1</th><th>Sieg S2</th><th>Unent.</th><th>Ø Züge</th><th>Zeitlimit</th>
-      <th>Laser/Spiel</th><th>Torpedos/Spiel</th><th>Verluste: Laser</th><th>Torpedo</th><th>Kollision</th><th>Rand</th></tr></thead>
+      <th>Laser/Spiel</th><th>Torpedos/Spiel</th><th>Verluste: Laser</th><th>Torpedo</th><th>Kollision</th><th>Rand</th><th>Planet</th></tr></thead>
     <tbody>${sums.map((s) => `<tr><td>${esc(s.variant)}</td><td>${s.games}</td><td>${pct(s.win1)}</td><td>${pct(s.win2)}</td><td>${pct(s.draw)}</td>
       <td>${s.turns.toFixed(1)}</td><td>${pct(s.timeouts)}</td><td>${s.lasers.toFixed(1)}</td><td>${s.torpedoes.toFixed(1)}</td>
-      <td>${s.byLaser.toFixed(2)}</td><td>${s.byTorpedo.toFixed(2)}</td><td>${s.byCollision.toFixed(2)}</td><td>${s.byEdge.toFixed(2)}</td></tr>`).join("")}</tbody></table>
+      <td>${s.byLaser.toFixed(2)}</td><td>${s.byTorpedo.toFixed(2)}</td><td>${s.byCollision.toFixed(2)}</td><td>${s.byEdge.toFixed(2)}</td><td>${s.byPlanet.toFixed(2)}</td></tr>`).join("")}</tbody></table>
     <p class="hint">Verluste sind zerstörte Einheiten pro Spiel nach Ursache (beide Spieler zusammen). „Sieg S1“ ist Spieler 1 (unten).</p>
-    ${!lab.running && k ? `<div class="row"><button id="lab-csv">Tabelle (CSV)</button><button id="lab-json">Alle Replays (JSON)</button></div>
+    ${!lab.running && k ? `<div class="row"><button id="lab-csv">Tabelle (CSV)</button><button id="lab-json">Alle Replays (JSON)</button>${lab.results.some((r) => r.gif) ? '<button id="lab-gifs">Alle Videos (ZIP)</button>' : ""}</div>
     <h3 style="margin-top:12px">Einzelne Spiele</h3>
-    <table><thead><tr><th>#</th><th>Variante</th><th>KI</th><th>Sieger</th><th>Züge</th><th>Verluste</th><th></th></tr></thead><tbody>
+    <table><thead><tr><th>#</th><th>Variante</th><th>KI</th><th>Sieger</th><th>Züge</th><th>Verluste</th><th></th><th></th></tr></thead><tbody>
     ${lab.results.slice().sort((a, b) => a.row.id - b.row.id).slice(0, 300).map((r) => `<tr><td>${r.row.id + 1}</td><td>${esc(r.row.variant)}</td><td>${lv(r.row)}</td>
       <td>${r.row.winner === "draw" ? "–" : `S${r.row.winner}`}</td><td>${r.row.turns}</td><td>${r.row.losses1}:${r.row.losses2}</td>
-      <td><button data-replay="${r.row.id}">Ansehen</button></td></tr>`).join("")}
+      <td>${r.gif ? `<button data-gif="${r.row.id}">▶ Video</button>` : ""}</td>
+      <td><button data-replay="${r.row.id}">Im Spiel ansehen</button></td></tr>`).join("")}
     </tbody></table>` : ""}`;
   const dl = (name, text, type) => {
     const a = document.createElement("a");
@@ -192,7 +197,21 @@ function renderResults() {
   };
   const csv = $("lab-csv"), json = $("lab-json");
   if (csv) csv.onclick = () => dl("hexaprog-lab.csv", toCSV(rows), "text/csv");
-  if (json) json.onclick = () => dl("hexaprog-lab-replays.json", JSON.stringify({ config: lab.cfg, summary: sums, games: lab.results }), "application/json");
+  if (json) json.onclick = () => dl("hexaprog-lab-replays.json", JSON.stringify({ config: lab.cfg, summary: sums, games: lab.results.map(({ gif, ...r }) => r) }), "application/json");
+  const gifs = $("lab-gifs");
+  if (gifs) {
+    gifs.onclick = async () => {
+      gifs.disabled = true;
+      const files = lab.results.filter((r) => r.gif).sort((a, b) => a.row.id - b.row.id)
+        .map((r) => ({ name: gifName(r), data: r.gif }));
+      const zip = await makeZip(files, { compress: false });
+      dl("hexaprog-lab-videos.zip", zip, "application/zip");
+      gifs.disabled = false;
+    };
+  }
+  res.querySelectorAll("[data-gif]").forEach((b) => {
+    b.onclick = () => showVideo(lab.results.find((x) => x.row.id === +b.dataset.gif));
+  });
   res.querySelectorAll("[data-replay]").forEach((b) => {
     b.onclick = () => {
       const r = lab.results.find((x) => x.row.id === +b.dataset.replay);
@@ -200,4 +219,36 @@ function renderResults() {
       lab.onReplay(r.replay);
     };
   });
+}
+
+const gifName = (r) => `spiel-${String(r.row.id + 1).padStart(4, "0")}-${r.row.variant.replace(/[^\w-]+/g, "_")}.gif`;
+
+/** Video of one game: the GIF in a dialog, with download and replay buttons. */
+function showVideo(r) {
+  let ov = document.getElementById("lab-video");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "lab-video";
+    ov.className = "overlay-screen";
+    ov.style.zIndex = 20;
+    document.body.appendChild(ov);
+  }
+  if (ov._url) URL.revokeObjectURL(ov._url);
+  ov._url = URL.createObjectURL(new Blob([r.gif], { type: "image/gif" }));
+  const who = r.row.winner === "draw" ? "Unentschieden" : `Sieg Spieler ${r.row.winner}`;
+  ov.innerHTML = `<div class="dialog" style="text-align:center">
+    <div class="row"><h3 class="grow" style="text-align:left">Spiel ${r.row.id + 1} · ${esc(r.row.variant)}</h3><button data-act="close">✕</button></div>
+    <p class="hint">${LEVEL_NAMES[r.row.level1]} gegen ${LEVEL_NAMES[r.row.level2]} · ${who} nach ${r.row.turns} Zügen · Verluste ${r.row.losses1}:${r.row.losses2}</p>
+    <img src="${ov._url}" alt="Spielverlauf" style="width:100%; max-width:480px; image-rendering:pixelated; border-radius:8px">
+    <div class="row" style="justify-content:center; margin-top:8px">
+      <a href="${ov._url}" download="${gifName(r)}"><button>GIF herunterladen</button></a>
+      <button data-act="replay">Im Spiel ansehen</button>
+    </div></div>`;
+  ov.classList.add("show");
+  ov.querySelector("[data-act=close]").onclick = () => ov.classList.remove("show");
+  ov.querySelector("[data-act=replay]").onclick = () => {
+    ov.classList.remove("show");
+    $("lab").classList.remove("show");
+    lab.onReplay(r.replay);
+  };
 }

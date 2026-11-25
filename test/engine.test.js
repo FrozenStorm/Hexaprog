@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, resolveTurn, onBoard, boardCells, mirror, unitById, sanitizeOrders, specialCells } from "../engine/core.js";
-import { line, dist, toAxial, toOffset } from "../engine/hex.js";
+import { newGame, resolveTurn, onBoard, boardCells, mirror, unitById, sanitizeOrders, specialCells, validSetup, defaultSetup } from "../engine/core.js";
+import { line, dist, toAxial, toOffset, sub } from "../engine/hex.js";
 
 const V = (q, r) => ({ q, r });
 const place = (s, id, pos, vel = V(0, 0)) => { const u = unitById(s, id); u.pos = pos; u.vel = vel; return u; };
@@ -37,8 +37,8 @@ test("setup: 1 base and 3 ships each, mirrored", () => {
   const s = newGame();
   assert.equal(s.units.length, 8);
   const b0 = unitById(s, "p0b"), b1 = unitById(s, "p1b");
-  assert.deepEqual(toOffset(b0.pos), { col: 3, row: 15 });
-  assert.deepEqual(toOffset(b1.pos), { col: 9, row: 3 });
+  assert.deepEqual(toOffset(b0.pos), { col: 6, row: 17 });
+  assert.deepEqual(toOffset(b1.pos), { col: 6, row: 1 });
   for (const u of s.units) if (u.kind === "ship") assert.equal(dist(u.pos, unitById(s, `p${u.owner}b`).pos), 1);
 });
 
@@ -49,14 +49,14 @@ test("line drawing has dist+1 hexes", () => {
 
 test("momentum: thrust shifts the marker, ship keeps flying", () => {
   const s = quiet(newGame());
-  place(s, "p0s1", toAxial(6, 9));
+  place(s, "p0s1", toAxial(5, 11));
   let r = resolveTurn(s, [orders({ p0s1: { thrust: V(1, 0) } }), orders()]);
   let u = unitById(r.state, "p0s1");
   assert.deepEqual(u.vel, V(1, 0));
-  assert.deepEqual(u.pos, add(toAxial(6, 9), V(1, 0)));
+  assert.deepEqual(u.pos, add(toAxial(5, 11), V(1, 0)));
   r = resolveTurn(r.state, [orders(), orders()]);
   u = unitById(r.state, "p0s1");
-  assert.deepEqual(u.pos, add(toAxial(6, 9), V(2, 0)));
+  assert.deepEqual(u.pos, add(toAxial(5, 11), V(2, 0)));
   assert.equal(r.state.turn, 3);
 });
 
@@ -70,7 +70,7 @@ test("thrust larger than the ship's thrust is ignored", () => {
 
 test("two ships on the same hex are both destroyed", () => {
   const s = quiet(newGame());
-  const c = toAxial(6, 9);
+  const c = toAxial(5, 11);
   place(s, "p0s1", add(c, V(-1, 0)), V(1, 0));
   place(s, "p1s1", add(c, V(1, 0)), V(-1, 0));
   const r = resolveTurn(s, [orders(), orders()]);
@@ -87,15 +87,15 @@ test("leaving the board destroys the ship", () => {
   assert.equal(r.stats.destroyed[0].cause, "edge");
 });
 
-test("laser hits a unit standing in the zone, costs 1 energy, then regen", () => {
+test("laser hits a unit standing in the zone; lasers cost nothing, ships do not regenerate", () => {
   const s = quiet(newGame());
   const c = toAxial(4, 10);
   place(s, "p0s1", c, V(1, 0));
   // laser vel = (2,0): spawn at c+2, after move at c+4; ship ends at c+1 -> zone c+1..c+4
   place(s, "p1s1", add(c, V(3, 0)));
   const r = resolveTurn(s, [orders({ p0s1: { laser: V(1, 0) } }), orders()]);
-  assert.equal(unitById(r.state, "p1s1").energy, 6); // 6 - 1 + 1 regen
-  assert.equal(unitById(r.state, "p0s1").energy, 6); // 6 - 1 cost + 1 regen
+  assert.equal(unitById(r.state, "p1s1").energy, 5); // 6 - 1, no regeneration
+  assert.equal(unitById(r.state, "p0s1").energy, 6); // firing is free
   const fx = r.frames.find((f) => f.phase === "weapons").effects;
   assert.ok(fx.some((e) => e.type === "damage" && e.id === "p1s1" && e.amount === 1));
   assert.equal(r.state.weapons.length, 0);
@@ -127,7 +127,7 @@ test("torpedo flies and detonates next to an enemy, damage 2 in radius 1", () =>
   // ... next turn moves to c+3, enemy adjacent -> boom.
   r = resolveTurn(r.state, [orders({}, {}), orders()]);
   assert.equal(r.state.weapons.length, 0);
-  assert.equal(unitById(r.state, "p1s2").energy, 5); // 6 - 2 + 1
+  assert.equal(unitById(r.state, "p1s2").energy, 4); // 6 - 2
 });
 
 test("torpedo flying onto an own unit detonates", () => {
@@ -137,7 +137,7 @@ test("torpedo flying onto an own unit detonates", () => {
   place(s, "p0s2", add(c, V(2, 0)));
   const r = resolveTurn(s, [orders({ p0s1: { launch: V(1, 0) } }), orders()]);
   assert.equal(r.state.weapons.length, 0);
-  assert.equal(unitById(r.state, "p0s2").energy, 5);
+  assert.equal(unitById(r.state, "p0s2").energy, 4);
 });
 
 test("refill torpedoes next to own base", () => {
@@ -179,4 +179,98 @@ test("resolution is deterministic and does not change the input", () => {
   const a = resolveTurn(s, o), b = resolveTurn(s, o);
   assert.equal(JSON.stringify(s), json);
   assert.equal(JSON.stringify(a.state), JSON.stringify(b.state));
+});
+
+test("ship flying onto a base is destroyed, base takes 4 damage", () => {
+  const s = quiet(newGame());
+  const b = unitById(s, "p1b");
+  b.pos = toAxial(5, 11);
+  place(s, "p0s1", add(b.pos, V(-2, 0)), V(2, 0));
+  const r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(unitById(r.state, "p0s1").alive, false);
+  assert.equal(unitById(r.state, "p1b").alive, true);
+  assert.equal(unitById(r.state, "p1b").energy, 4); // 6 - 4 + 2 regen
+  assert.equal(r.stats.destroyed[0].cause, "ram");
+});
+
+test("both players lose their second unit: more energy wins, equal energy is a draw", () => {
+  const s = quiet(newGame());
+  place(s, "p0s1", toAxial(0, 9), V(-1, 0));
+  place(s, "p0s2", toAxial(0, 11), V(-1, 0));
+  place(s, "p1s1", toAxial(13, 8), V(1, 0));
+  place(s, "p1s2", toAxial(13, 10), V(1, 0));
+  let r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(r.state.winner, "draw");
+  unitById(s, "p1b").energy = 3;
+  r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(r.state.winner, 0);
+});
+
+test("any number of torpedoes in flight per ship", () => {
+  const s = quiet(newGame());
+  const c = toAxial(5, 11);
+  place(s, "p0s1", c, V(0, 0));
+  let r = resolveTurn(s, [orders({ p0s1: { launch: V(0, -1) } }), orders()]);
+  r = resolveTurn(r.state, [orders({ p0s1: { launch: V(-1, 0) } }), orders()]);
+  assert.equal(r.state.weapons.filter((w) => w.kind === "torpedo").length, 2);
+  assert.equal(unitById(r.state, "p0s1").torpedoes, 0);
+});
+
+test("free setup in the own zone with momentum markers", () => {
+  const R = newGame().rules;
+  const su = { base: toAxial(5, 17), ships: [
+    { pos: toAxial(2, 16), mom: toAxial(2, 15) },
+    { pos: toAxial(6, 16), mom: toAxial(6, 16) },
+    { pos: toAxial(10, 18), mom: toAxial(11, 15) },
+  ] };
+  assert.ok(validSetup(R, 0, su));
+  assert.ok(!validSetup(R, 1, su));
+  assert.ok(!validSetup(R, 0, { ...su, base: toAxial(5, 14) }));
+  assert.ok(!validSetup(R, 0, { ...su, base: toAxial(2, 16) }));
+  assert.ok(!validSetup(R, 0, { ...su, ships: [su.ships[0], su.ships[1], { pos: toAxial(10, 18), mom: toAxial(10, 14) }] }));
+  const g = newGame({}, [su, null]);
+  assert.deepEqual(unitById(g, "p0s1").vel, sub(toAxial(2, 15), toAxial(2, 16)));
+  assert.deepEqual(unitById(g, "p0b").pos, toAxial(5, 17));
+  assert.deepEqual(toOffset(unitById(g, "p1b").pos), { col: 6, row: 1 }); // default for a missing setup
+  for (const p of [0, 1]) assert.ok(validSetup(R, p, defaultSetup(R, p)));
+});
+
+test("torpedoes only thrust into the front half of their flight direction", async () => {
+  const { torpThrustOptions } = await import("../engine/core.js");
+  const s = newGame();
+  const w = { vel: V(1, 0) };
+  const opts = torpThrustOptions(s, w).map((d) => `${d.q},${d.r}`).sort();
+  assert.deepEqual(opts, ["0,0", "1,-1", "1,0", "0,1"].sort());
+  const t = { id: "T1", kind: "torpedo", owner: 0, from: "p0s1", pos: toAxial(5, 11), vel: V(1, 0) };
+  s.weapons.push(t);
+  assert.equal(sanitizeOrders(s, 0, orders({}, { T1: V(-1, 0) })).torps.T1, undefined);
+  assert.deepEqual(sanitizeOrders(s, 0, orders({}, { T1: V(0, 1) })).torps.T1, V(0, 1));
+});
+
+test("planets: ships crash, lasers are blocked, torpedoes are lost", async () => {
+  const { isPlanet, clearLine } = await import("../engine/core.js");
+  const s = quiet(newGame());
+  const planet = toAxial(6, 9);
+  assert.ok(isPlanet(s.rules, planet));
+  // Ship flying through the planet.
+  place(s, "p0s1", add(planet, V(-1, 0)), V(2, 0));
+  let r = resolveTurn(s, [orders(), orders()]);
+  assert.equal(unitById(r.state, "p0s1").alive, false);
+  assert.equal(r.stats.destroyed[0].cause, "planet");
+  // Laser behind a planet does not hit.
+  const s2 = quiet(newGame());
+  place(s2, "p0s1", add(planet, V(-2, 0)), V(1, 0));
+  place(s2, "p1s1", add(planet, V(1, 0)));
+  r = resolveTurn(s2, [orders({ p0s1: { laser: V(1, 0) } }), orders()]);
+  assert.equal(unitById(r.state, "p1s1").energy, 6);
+  assert.equal(clearLine(s2.rules, add(planet, V(-2, 0)), add(planet, V(2, 0))).length, 2);
+  // Without planets the same laser hits.
+  const s3 = quiet(newGame({ planets: false }));
+  place(s3, "p0s1", add(planet, V(-2, 0)), V(1, 0));
+  place(s3, "p1s1", add(planet, V(1, 0)));
+  r = resolveTurn(s3, [orders({ p0s1: { laser: V(1, 0) } }), orders()]);
+  assert.ok(r.frames.find((f) => f.phase === "weapons").effects.some((e) => e.type === "damage" && e.id === "p1s1"));
+  // Units cannot be set up on a planet.
+  const su = defaultSetup(s.rules, 0);
+  assert.ok(!validSetup(s.rules, 0, { ...su, base: toAxial(3, 15) }));
 });

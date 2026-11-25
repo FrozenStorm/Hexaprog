@@ -38,3 +38,10 @@ test("lab expands variants and summarizes", () => {
   assert.equal(sum.length, 2);
   assert.equal(sum[0].games, 2);
 });
+
+test("AI setups are valid for both players", async () => {
+  const { chooseSetup } = await import("../ai/setup.js");
+  const { validSetup } = await import("../engine/core.js");
+  const rng = makeRng(3);
+  for (let i = 0; i < 50; i++) for (const p of [0, 1]) assert.ok(validSetup({}, p, chooseSetup({}, p, rng)));
+});
