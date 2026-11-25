@@ -38,6 +38,8 @@ const G = {
   ruleOverrides: null,
   online: null,      // { me, submitted, opponentName }
   replay: null,      // { states, frames, idx, levels }
+  history: [],       // played turns: [{ before, orders }]
+  view: null,        // index into history while looking back, null = live
   watchTimer: null,
   epoch: 0,          // changes when a new game starts or the game is left: running animations stop
 };
@@ -79,6 +81,9 @@ export function startGame(mode, opts = {}) {
   G.sel = null;
   G.busy = false;
   G.log = [];
+  G.history = [];
+  G.view = null;
+  G.histPlaying = false;
   G.info = new Map(G.state.units.map((u) => [u.id, { owner: u.owner, kind: u.kind, n: u.n, maxEnergy: maxEnergy(G.state.rules, u) }]));
   G.board = new Board($("board"), G.state.rules, { onCell });
   ["menu", "gameover", "handover", "lobby", "lab"].forEach((id) => $(id).classList.remove("show"));
@@ -257,6 +262,7 @@ function render() {
     $("status").textContent = `Aufstellung · ${playerLabel(G.planner)}`;
     return;
   }
+  if (G.view !== null) return renderHistory();
   G.board.show(liveView(s), G.info);
   for (const [id, g] of G.board.unitEls) g.classList.toggle("sel", !!(G.sel && G.sel.id === id));
   renderOverlay();
@@ -265,7 +271,7 @@ function render() {
   $("status").textContent = s.over ? "Spiel vorbei" : `Zug ${s.turn}${who} · Verluste ${s.losses[0]}:${s.losses[1]} (verloren bei ${s.rules.lossLimit})`;
 }
 
-const planningHuman = () => !G.busy && !G.state.over && G.humans[G.planner] && !(G.online && G.online.submitted);
+const planningHuman = () => G.view === null && !G.busy && !G.state.over && G.humans[G.planner] && !(G.online && G.online.submitted);
 
 /** Option cells of the selected tool: [{ cell, vec }]. */
 function toolOptions() {
@@ -338,6 +344,7 @@ function renderSide() {
   side.innerHTML = "";
   if (G.mode === "replay") return renderReplaySide(side);
   if (G.mode === "watch") return renderWatchSide(side);
+  if (G.history.length) side.appendChild(historyBar());
   if (planningHuman()) {
     const p = G.planner;
     const h = document.createElement("div");
@@ -401,8 +408,7 @@ function shipCard(u, p) {
   return card;
 }
 
-function statusCards() {
-  const s = G.state;
+function statusCards(s = G.state) {
   const box = document.createElement("div");
   box.className = "card";
   const rows = [0, 1].map((p) => {
@@ -489,23 +495,16 @@ async function confirmPlan() {
 // ---------------------------------------------------------------------------
 
 async function executeTurn(orders, { animate = true } = {}) {
-  const epoch = G.epoch;
   G.busy = true;
   G.sel = null;
+  // A turn coming in (online, watch) ends looking back.
+  if (G.histPlaying) { G.histPlaying = false; G.epoch++; }
+  G.view = null;
   const before = G.state;
   const r = resolveTurn(before, orders);
-  G.board.clearOverlay();
-  if (animate) {
-    for (const f of r.frames.slice(1)) {
-      G.board.show(f, G.info);
-      G.board.fx(f.effects, G.info);
-      $("status").textContent = `Zug ${before.turn} · ${PHASES[f.phase]}`;
-      await sleep(f.phase === "weapons" ? 1100 : f.phase === "end" ? 350 : 650);
-      if (G.epoch !== epoch) return r;
-    }
-    G.board.clearFx();
-  }
+  if (animate && !(await animateTurn(before, r))) return r;
   logTurn(before, r);
+  if (G.mode !== "replay") G.history.push({ before, orders });
   G.state = r.state;
   G.orders = [emptyOrders(), emptyOrders()];
   G.planner = G.mode === "online" ? G.online.me : 0;
@@ -514,6 +513,20 @@ async function executeTurn(orders, { animate = true } = {}) {
   render();
   if (G.state.over) showGameOver();
   return r;
+}
+/** Plays the frames of a resolved turn on the board; false if the game was left meanwhile. */
+async function animateTurn(before, r) {
+  const epoch = G.epoch;
+  G.board.clearOverlay();
+  for (const f of r.frames.slice(1)) {
+    G.board.show(f, G.info);
+    G.board.fx(f.effects, G.info);
+    $("status").textContent = `Zug ${before.turn} · ${PHASES[f.phase]}`;
+    await sleep(f.phase === "weapons" ? 1100 : f.phase === "end" ? 350 : 650);
+    if (G.epoch !== epoch) return false;
+  }
+  G.board.clearFx();
+  return true;
 }
 const PHASES = { fire: "Waffen abfeuern", thrust: "Schub", move: "Schiffe bewegen", weapons: "Waffen bewegen", end: "Energie und Aufräumen" };
 
@@ -544,6 +557,74 @@ function showGameOver() {
     : `Nach ${s.turn} Zügen, Verluste ${s.losses[0]}:${s.losses[1]}.`;
   $("gameover-again").style.display = G.mode === "online" ? "none" : "";
   $("gameover").classList.add("show");
+}
+
+// ---------------------------------------------------------------------------
+// History: step back and forward through the turns already played
+// ---------------------------------------------------------------------------
+
+/** Start of turn `i` (i = history.length is the live position). */
+const histState = (i) => (i < G.history.length ? G.history[i].before : G.state);
+
+function historyBar() {
+  const n = G.history.length;
+  const at = G.view === null ? n : G.view;
+  const c = document.createElement("div");
+  c.className = "row history";
+  const prev = document.createElement("button"); prev.textContent = "◀ Zurück"; prev.title = "Einen Zug zurück";
+  const next = document.createElement("button"); next.textContent = "Vor ▶"; next.title = "Nächsten Zug abspielen";
+  const info = document.createElement("span"); info.className = "hint grow";
+  info.textContent = G.view === null ? `Verlauf: ${n} Zug${n === 1 ? "" : "e"}` : `Verlauf: Zug ${histState(at).turn} von ${G.state.turn}`;
+  prev.disabled = at === 0 || G.busy || G.histPlaying;
+  next.disabled = G.view === null || G.busy || G.histPlaying;
+  prev.onclick = () => showHistory(at - 1);
+  next.onclick = () => stepHistory();
+  c.append(prev, info, next);
+  if (G.view !== null) {
+    const live = document.createElement("button");
+    live.className = "primary";
+    live.textContent = "Zurück ins Spiel";
+    live.onclick = () => showHistory(null);
+    c.appendChild(live);
+  }
+  return c;
+}
+
+function showHistory(i) {
+  if (G.busy || G.histPlaying) return;
+  if (i !== null && G.mode === "watch" && !G.watchPaused) { G.watchPaused = true; stopWatch(); }
+  G.view = i === null || i >= G.history.length ? null : Math.max(0, i);
+  G.sel = null;
+  G.board.clearFx();
+  render();
+}
+
+/** Plays the viewed turn as an animation and moves one turn forward. */
+async function stepHistory() {
+  if (G.view === null || G.busy || G.histPlaying) return;
+  const h = G.history[G.view];
+  G.histPlaying = true;
+  render();
+  const ok = await animateTurn(h.before, resolveTurn(h.before, h.orders));
+  if (!ok || !G.histPlaying) return;
+  G.histPlaying = false;
+  showHistory(G.view + 1);
+}
+
+function renderHistory() {
+  const s = histState(G.view);
+  G.board.show(liveView(s), G.info);
+  G.board.clearOverlay();
+  const side = $("side");
+  side.innerHTML = "";
+  side.appendChild(historyBar());
+  const h = document.createElement("div");
+  h.className = "hint";
+  h.textContent = G.histPlaying ? "Zug wird abgespielt…" : "Du siehst einen früheren Zug. „Vor“ spielt ihn ab, „Zurück ins Spiel“ zeigt wieder den aktuellen Stand.";
+  side.appendChild(h);
+  side.appendChild(statusCards(s));
+  side.appendChild(logBox());
+  if (!G.histPlaying) $("status").textContent = `Verlauf · Zug ${s.turn} · Verluste ${s.losses[0]}:${s.losses[1]}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -578,6 +659,7 @@ function renderWatchSide(side) {
   n.onclick = () => watchStep();
   c.append(b, n);
   side.appendChild(c);
+  if (G.history.length) side.appendChild(historyBar());
   side.appendChild(statusCards());
   side.appendChild(logBox());
 }
