@@ -65,7 +65,7 @@ Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen To
 
 ### Torpedo
 
-
+- Der Torpedo-Marker wird auf den Schwung-Marker des Schiffs oder ein angrenzendes Feld gelegt, nie auf das Schiff selbst. Sein Schwung ist der Abstand vom Schiff zum Marker; in Schritt 5 fliegt er nochmals um diesen Schwung weiter.
 - Schaden 2 an allen Einheiten im Radius 1 um den Torpedo.
 - Kostet 1 Torpedo aus dem Vorrat des Schiffs. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben (begrenzt nur durch den Vorrat).
 - Torpedos können **nur beschleunigen**: Der Schwung-Pfeil des Torpedos (von Feldmitte zu Feldmitte) darf durch den Schub nur gleich lang bleiben oder länger werden. Das gilt schon beim Abschuss aus einem fliegenden Schiff (gemessen am Schwung des Schiffs) und ab dem Folgezug für den Schub 1, mit dem jeder Torpedo wie ein Schiff gesteuert wird. Erlaubt sind also geradeaus, schräg nach vorne und, wo die Linie dadurch nicht kürzer wird, auch zur Seite: Fliegt ein Torpedo z. B. gerade nach oben, darf er auch nach links oder rechts. Mit Schwung 1 darf er um 60° abbiegen, weil die Linie gleich lang bleibt; nur zurück geht nie.
