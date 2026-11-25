@@ -312,3 +312,25 @@ test("torpedoes intercept enemy torpedoes; blasts destroy torpedoes in range", a
   assert.equal(r.state.weapons.length, 3);
   assert.deepEqual(r.stats.intercepted, [0, 0]);
 });
+
+test("laser along the border of two hexes hits both", async () => {
+  const { clearLine } = await import("../engine/core.js");
+  const { setRule } = await import("../engine/rules.js");
+  const s = newGame();
+  const c = toAxial(2, 8);
+  const cells = clearLine(s.rules, c, add(c, V(1, 1))).map((x) => `${x.q - c.q},${x.r - c.r}`).sort();
+  assert.deepEqual(cells, ["0,0", "0,1", "1,0", "1,1"].sort());
+  const off = clearLine(setRule(s.rules, "laser.edgeBoth", false), c, add(c, V(1, 1)));
+  assert.equal(off.length, 3);
+  // In a real turn: two enemies left and right of the border line both take damage.
+  const g = quiet(newGame());
+  // Ship flies with momentum (1,1) and fires straight ahead: the beam runs from c+(1,1)
+  // to c+(2,2), exactly along the border of c+(2,1) and c+(1,2).
+  place(g, "p0s1", c, V(1, 1));
+  place(g, "p1s1", add(c, V(2, 1)));
+  place(g, "p1s2", add(c, V(1, 2)));
+  const r = resolveTurn(g, [orders({ p0s1: { laser: V(0, 0) } }), orders()]);
+  assert.ok(r.state.weapons.length === 0);
+  assert.equal(unitById(r.state, "p1s1").energy, 5);
+  assert.equal(unitById(r.state, "p1s2").energy, 5);
+});

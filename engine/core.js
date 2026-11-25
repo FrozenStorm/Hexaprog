@@ -12,7 +12,7 @@
 // Every vec is a hex offset {q, r}: thrust moves the momentum marker, laser/launch
 // place the weapon relative to the ship's momentum marker, torps steer a torpedo.
 
-import { add, sub, eq, key, len, dist, line, toAxial, toOffset, diskCached, ZERO } from "./hex.js";
+import { add, sub, eq, key, len, dist, line, lineSteps, toAxial, toOffset, diskCached, ZERO } from "./hex.js";
 import { mergeRules } from "./rules.js";
 
 export const PLAYER_NAMES = ["Spieler 1", "Spieler 2"];
@@ -70,12 +70,21 @@ export function planetSet(rules) {
 }
 export const isPlanet = (rules, a) => planetSet(rules).has(key(a));
 
-/** The hexes of line(a, b) up to (not including) the first planet. */
+/**
+ * The hexes a laser beam from a to b touches, up to the first planet. With
+ * laser.edgeBoth a beam running exactly along the border of two hexes touches both;
+ * if one of them is a planet, the beam stops there (the other hex is still hit).
+ */
 export function clearLine(rules, a, b) {
   const out = [];
-  for (const c of line(a, b)) {
-    if (isPlanet(rules, c)) break;
-    out.push(c);
+  const steps = rules.laser.edgeBoth ? lineSteps(a, b) : line(a, b).map((c) => [c]);
+  for (const step of steps) {
+    let blocked = false;
+    for (const c of step) {
+      if (isPlanet(rules, c)) blocked = true;
+      else out.push(c);
+    }
+    if (blocked) break;
   }
   return out;
 }

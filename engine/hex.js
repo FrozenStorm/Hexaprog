@@ -51,6 +51,23 @@ export function line(a, b) {
   return out;
 }
 
+/**
+ * Like line(a, b), but as steps: a step holds two hexes when the line runs exactly
+ * along the border between them (both are touched), otherwise one.
+ */
+export function lineSteps(a, b) {
+  const n = dist(a, b);
+  if (n === 0) return [[{ q: a.q, r: a.r }]];
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const q = a.q + (b.q - a.q) * t, r = a.r + (b.r - a.r) * t;
+    const h1 = cubeRound(q + 1e-6, r + 2e-6), h2 = cubeRound(q - 1e-6, r - 2e-6);
+    out.push(h1.q === h2.q && h1.r === h2.r ? [h1] : [h1, h2]);
+  }
+  return out;
+}
+
 // ---- offset <-> axial ----
 export const toAxial = (col, row) => ({ q: col - (row - (row & 1)) / 2, r: row });
 export function toOffset(a) {

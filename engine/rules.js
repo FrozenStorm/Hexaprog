@@ -10,7 +10,8 @@ export const DEFAULT_RULES = Object.freeze({
   ship: { energy: 6, regen: 0, thrust: 1, torpedoes: 2 },
   shipsPerPlayer: 3,
 
-  laser: { damage: 1, cost: 0, spread: 1 },
+  laser: { damage: 1, cost: 0, spread: 1, edgeBoth: true },
+  // edgeBoth: a beam running exactly along the border of two hexes hits both
   torpedo: { damage: 2, radius: 1, thrust: 1, spread: 1, perShip: 0, forwardOnly: true, intercept: true },
   // perShip 0 = any number of torpedoes in flight; forwardOnly: torpedos only accelerate
   // (launch and thrust only into the front half of the flight direction);
@@ -64,7 +65,7 @@ export const RULE_FIELDS = [
   ["ship.energy", "Schiff Energie"], ["ship.regen", "Schiff Regeneration"], ["ship.thrust", "Schiff Schub"],
   ["ship.torpedoes", "Schiff Torpedoplätze"], ["shipsPerPlayer", "Schiffe pro Spieler"],
   ["base.energy", "Basis Energie"], ["base.regen", "Basis Regeneration"], ["base.ramDamage", "Basis Schaden durch Rammen"],
-  ["laser.damage", "Laser Schaden"], ["laser.cost", "Laser Kosten"], ["laser.spread", "Laser Abweichung"],
+  ["laser.damage", "Laser Schaden"], ["laser.cost", "Laser Kosten"], ["laser.spread", "Laser Abweichung"], ["laser.edgeBoth", "Laser auf Feldgrenze trifft beide Felder", [true, false]],
   ["torpedo.damage", "Torpedo Schaden"], ["torpedo.radius", "Torpedo Radius"], ["torpedo.thrust", "Torpedo Schub"],
   ["torpedo.spread", "Torpedo Abweichung"], ["torpedo.forwardOnly", "Torpedo nur Vorwärtsschub", [true, false]], ["oneWeaponPerTurn", "Nur 1 Waffe pro Schiff und Zug", [true, false]], ["torpedo.perShip", "Torpedos gleichzeitig pro Schiff (0 = beliebig)"], ["torpedo.intercept", "Torpedos fangen Torpedos ab", [true, false]],
   ["lossLimit", "Verlorene Einheiten bis Niederlage"], ["maxTurns", "Max. Züge"],
