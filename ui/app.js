@@ -303,6 +303,7 @@ function renderOverlay() {
   b.clearOverlay();
   if (!planningHuman()) return;
   const p = G.planner;
+  const markers = []; // weapon symbols, drawn last so option cells and zones do not cover them
   // Previews of all planned orders of the planning player.
   for (const u of liveShips(s, p)) {
     const o = unitOrders(p, u.id);
@@ -312,7 +313,7 @@ function renderOverlay() {
       const lv = add(u.vel, o.laser), lpos = add(u.pos, lv);
       b.zone(clearLine(s.rules, end, add(lpos, lv)), "laser");
       b.arrow(lpos, add(lpos, lv), "laser");
-      b.marker(lpos, "laser", p, lv);
+      markers.push([lpos, "laser", lv]);
     }
     b.arrow(u.pos, end, `p${p}`, p);
     if (!eq(u.pos, end)) b.ghost(end, `p${p}`);
@@ -320,7 +321,7 @@ function renderOverlay() {
     if (o.launch) {
       const tv = add(u.vel, o.launch), spawn = add(u.pos, tv);
       b.arrow(spawn, add(spawn, tv), "torp");
-      b.marker(spawn, "torpedo", p, tv);
+      markers.push([spawn, "torpedo", tv]);
     }
   }
   for (const w of s.weapons) {
@@ -338,6 +339,7 @@ function renderOverlay() {
     const selCell = cur ? opts.find((o) => eq(o.vec, cur)) : null;
     b.options(opts.map((o) => o.cell), G.sel.tool, selCell ? key(selCell.cell) : null);
   }
+  for (const [c, kind, vel] of markers) b.marker(c, kind, p, vel);
 }
 
 function renderSide() {
