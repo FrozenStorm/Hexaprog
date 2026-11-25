@@ -434,8 +434,9 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     let z1, z2, from = ship.pos;
     const before = { ...w.pos };
     if (w.aim) {
-      // Beam at the ship's start position, then (moved along with the ship) at its end position.
-      z1 = clearLine(R, w.origin, add(w.origin, w.aim));
+      // The beam damages at the ship's end position (laser.sweep "both": also at its start).
+      // A ship destroyed while moving does not fire.
+      z1 = R.laser.sweep === "both" ? clearLine(R, w.origin, add(w.origin, w.aim)) : [];
       z2 = ship.alive ? clearLine(R, ship.pos, add(ship.pos, w.aim)) : [];
       if (!ship.alive) from = w.origin;
     } else {
@@ -452,6 +453,7 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
       if (path.some((c) => zone.has(key(c)))) hit(u, R.laser.damage, "laser");
     }
     const last = z2.length ? z2 : z1;
+    if (!last.length) continue;
     fx.push({ type: "laser", owner: w.owner, from: { ...from }, before, to: { ...(last[last.length - 1] || from) } });
   }
   // Torpedoes: check before the move, move, check after the move; each check is simultaneous.
@@ -518,7 +520,8 @@ export const predictedPos = (u, thrust) => add(add(u.pos, u.vel), thrust || ZERO
 export function laserPreview(rules, u, d, end) {
   if (rules.laser.mode === "ship") {
     const spawn = add(u.pos, d), to = add(end, d);
-    return { spawn, to, cells: [...clearLine(rules, u.pos, spawn), ...clearLine(rules, end, to)] };
+    const start = rules.laser.sweep === "both" ? clearLine(rules, u.pos, spawn) : [];
+    return { spawn, to, cells: [...start, ...clearLine(rules, end, to)] };
   }
   const vel = add(u.vel, d), spawn = add(u.pos, vel), to = add(spawn, vel);
   return { spawn, to, cells: [...clearLine(rules, end, spawn), ...clearLine(rules, end, to)] };

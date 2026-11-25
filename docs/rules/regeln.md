@@ -58,7 +58,7 @@ Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen To
 - Schaden 1, kostet keine Energie.
 - Der Laser-Marker wird **relativ zum Schiff** auf ein beliebiges Feld im Radius 3 um das Schiff gelegt (nicht auf das Schiff selbst).
 - Der Laser bewegt sich in diesem Zug mit dem Schiff mit: der Marker behält seine Lage relativ zum Schiff.
-- Schadenszone: alle Felder in gerader Linie vom Schiff zum Laser-Marker, einmal an der Startposition des Schiffs und einmal an seiner Endposition (nach der Bewegung). Wird das Schiff beim Bewegen zerstört, zählt nur die Linie an der Startposition.
+- Schaden macht der Laser nur an der **Zielposition** des Schiffs: Schadenszone sind alle Felder in gerader Linie vom Schiff (nach seiner Bewegung) zum Laser-Marker. Wird das Schiff beim Bewegen zerstört, feuert der Laser nicht.
 - Verläuft der Strahl genau auf der Grenze zwischen zwei Feldern, gehören **beide** Felder zur Schadenszone. Ist eines davon ein Planet, endet der Strahl dort; das andere Feld wird noch getroffen.
 - Getroffen wird jede Einheit, deren Flugweg in diesem Zug ein Feld der Schadenszone berührt, ausser das feuernde Schiff. Ein Laser trifft jede Einheit höchstens einmal pro Zug.
 - Der Laser verschwindet am Ende des Zuges.
@@ -91,6 +91,7 @@ Alle Zahlen und Schalter stehen in `engine/rules.js` und lassen sich im KI-Lab v
 | Zerstörung | `destroyWhen` | `zero`: schon bei 0 Energie zerstört |
 | Spielfeldrand | `edge` | `stop`: Schiff bleibt am Rand stehen |
 | Schiff auf Basis | `baseCollision`, `base.ramDamage` | `destroyBoth`, `ignore` |
+| Laser Schaden an | `laser.sweep` | `both`: auch an der Startposition des Schiffs |
 | Laser platzieren | `laser.mode`, `laser.range` | `momentum`: wie früher neben den Schwung-Marker (±1), fliegt weiter |
 | Laser auf Feldgrenze | `laser.edgeBoth` | aus: nur eines der beiden Felder |
 | Eine Waffe pro Zug | `oneWeaponPerTurn` | aus: Laser und Torpedo im selben Zug |

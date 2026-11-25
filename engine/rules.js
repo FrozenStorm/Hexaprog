@@ -10,8 +10,9 @@ export const DEFAULT_RULES = Object.freeze({
   ship: { energy: 6, regen: 0, thrust: 1, torpedoes: 2 },
   shipsPerPlayer: 3,
 
-  laser: { damage: 1, cost: 0, mode: "ship", range: 3, spread: 1, edgeBoth: true },
+  laser: { damage: 1, cost: 0, mode: "ship", range: 3, sweep: "end", spread: 1, edgeBoth: true },
   // mode "ship": aimed up to `range` hexes from the ship, the beam moves along with the ship;
+  // sweep "end": damage only at the ship's end position, "both": also at its start position;
   // mode "momentum" (old): placed next to the momentum marker (±spread) and flies on.
   // edgeBoth: a beam running exactly along the border of two hexes hits both
   torpedo: { damage: 2, radius: 1, thrust: 1, spread: 1, perShip: 0, forwardOnly: true, intercept: true },
@@ -67,7 +68,7 @@ export const RULE_FIELDS = [
   ["ship.energy", "Schiff Energie"], ["ship.regen", "Schiff Regeneration"], ["ship.thrust", "Schiff Schub"],
   ["ship.torpedoes", "Schiff Torpedoplätze"], ["shipsPerPlayer", "Schiffe pro Spieler"],
   ["base.energy", "Basis Energie"], ["base.regen", "Basis Regeneration"], ["base.ramDamage", "Basis Schaden durch Rammen"],
-  ["laser.damage", "Laser Schaden"], ["laser.cost", "Laser Kosten"], ["laser.mode", "Laser platzieren", ["ship", "momentum"]], ["laser.range", "Laser Reichweite (relativ zum Schiff)"], ["laser.spread", "Laser Abweichung (Schwung-Variante)"], ["laser.edgeBoth", "Laser auf Feldgrenze trifft beide Felder", [true, false]],
+  ["laser.damage", "Laser Schaden"], ["laser.cost", "Laser Kosten"], ["laser.mode", "Laser platzieren", ["ship", "momentum"]], ["laser.range", "Laser Reichweite (relativ zum Schiff)"], ["laser.sweep", "Laser Schaden an", ["end", "both"]], ["laser.spread", "Laser Abweichung (Schwung-Variante)"], ["laser.edgeBoth", "Laser auf Feldgrenze trifft beide Felder", [true, false]],
   ["torpedo.damage", "Torpedo Schaden"], ["torpedo.radius", "Torpedo Radius"], ["torpedo.thrust", "Torpedo Schub"],
   ["torpedo.spread", "Torpedo Abweichung"], ["torpedo.forwardOnly", "Torpedo nur beschleunigen (Linie nie kürzer)", [true, false]], ["oneWeaponPerTurn", "Nur 1 Waffe pro Schiff und Zug", [true, false]], ["torpedo.perShip", "Torpedos gleichzeitig pro Schiff (0 = beliebig)"], ["torpedo.intercept", "Torpedos fangen Torpedos ab", [true, false]],
   ["lossLimit", "Verlorene Einheiten bis Niederlage"], ["maxTurns", "Max. Züge"],

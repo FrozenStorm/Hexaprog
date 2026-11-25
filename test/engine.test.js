@@ -350,14 +350,20 @@ test("laser aimed relative to the ship (range 3) moves along with the ship", asy
   // 36 aim hexes around the ship (radius 3 without the ship itself).
   assert.equal(weaponOptions(s, u, "laser").length, 36);
   assert.equal(sanitizeOrders(s, 0, orders({ p0s1: { laser: V(0, -4) } })).units.p0s1.laser, null);
-  // Aim 3 hexes "down-right" (0,3): beam from c, then from c+(2,0) after the move.
-  place(s, "p1s1", add(c, V(0, 3)));      // hit by the beam at the start position
-  place(s, "p1s2", add(c, V(2, 2)));      // hit by the beam after the move
-  place(s, "p1s3", add(c, V(1, 2)));      // between the two beams: not hit
+  // Aim 3 hexes "down-right" (0,3): the beam damages from c+(2,0), the end position.
+  place(s, "p1s1", add(c, V(0, 3)));      // on the beam at the start position: not hit
+  place(s, "p1s2", add(c, V(2, 2)));      // on the beam at the end position: hit
+  place(s, "p1s3", add(c, V(1, 2)));      // between: not hit
   const r = resolveTurn(s, [orders({ p0s1: { laser: V(0, 3) } }), orders()]);
-  assert.equal(unitById(r.state, "p1s1").energy, 5);
+  assert.equal(unitById(r.state, "p1s1").energy, 6);
   assert.equal(unitById(r.state, "p1s2").energy, 5);
   assert.equal(unitById(r.state, "p1s3").energy, 6);
+  // Variant "both": the start position counts as well.
+  const s2 = quiet(newGame({ laser: { sweep: "both" } }));
+  place(s2, "p0s1", c, V(2, 0)); place(s2, "p1s1", add(c, V(0, 3))); place(s2, "p1s2", add(c, V(2, 2)));
+  const r2 = resolveTurn(s2, [orders({ p0s1: { laser: V(0, 3) } }), orders()]);
+  assert.equal(unitById(r2.state, "p1s1").energy, 5);
+  assert.equal(unitById(r2.state, "p1s2").energy, 5);
   assert.equal(unitById(r.state, "p0s1").energy, 6);
   // The laser marker moved along with the ship in the move frame.
   const mv = r.frames.find((f) => f.phase === "move");
