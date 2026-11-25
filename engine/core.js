@@ -186,17 +186,19 @@ export function weaponOptions(s, u, kind) {
   return opts;
 }
 
-/** d is zero or points into the front half of v (angle below 90 degrees). */
+/**
+ * Torpedos only accelerate: thrust d is allowed when the flight line from hex centre
+ * to hex centre does not get shorter, |v + d| >= |v| (straight on, to the sides,
+ * diagonally forward). Lengths in screen space (pointy-top hexes): x = q + r/2, y = r * sqrt(3)/2.
+ */
+const len2 = (a) => (a.q + a.r / 2) ** 2 + 0.75 * a.r * a.r;
 function forwardOk(d, v) {
-  // Dot product in screen space (pointy-top hexes): x = q + r/2, y = r * sqrt(3)/2.
-  const dot = (d.q + d.r / 2) * (v.q + v.r / 2) + 0.75 * d.r * v.r;
-  return len(d) === 0 || dot > 1e-9;
+  return len(d) === 0 || len2(add(v, d)) >= len2(v) - 1e-9;
 }
 
 /**
- * Thrust options of a torpedo in flight. Torpedos only have forward thrust: the
- * momentum marker may only move into the half in front of the current flight
- * direction (angle below 90 degrees), or stay.
+ * Thrust options of a torpedo in flight. Torpedos only accelerate: the momentum
+ * marker may only move so that the flight line does not get shorter, or stay.
  */
 export function torpThrustOptions(s, w) {
   const all = diskCached(s.rules.torpedo.thrust);

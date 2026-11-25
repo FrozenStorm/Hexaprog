@@ -235,12 +235,17 @@ test("free setup in the own zone with momentum markers", () => {
   for (const p of [0, 1]) assert.ok(validSetup(R, p, defaultSetup(R, p)));
 });
 
-test("torpedoes only thrust into the front half of their flight direction", async () => {
+test("torpedo thrust never makes the flight line shorter", async () => {
   const { torpThrustOptions } = await import("../engine/core.js");
   const s = newGame();
+  const opts = (vel) => torpThrustOptions(s, { vel }).map((d) => `${d.q},${d.r}`).sort();
+  // Straight up (screen): left and right count too, the two backward hexes do not.
+  assert.deepEqual(opts(V(1, -2)), ["0,0", "-1,0", "1,0", "0,-1", "1,-1"].sort());
+  // Speed 2 to the right: straight on and diagonally forward.
+  assert.deepEqual(opts(V(2, 0)), ["0,0", "1,-1", "1,0", "0,1"].sort());
+  // Speed 1: turning by 60 degrees keeps the length, only straight back is out.
+  assert.deepEqual(opts(V(1, 0)), ["0,0", "1,-1", "1,0", "0,1", "0,-1", "-1,1"].sort());
   const w = { vel: V(1, 0) };
-  const opts = torpThrustOptions(s, w).map((d) => `${d.q},${d.r}`).sort();
-  assert.deepEqual(opts, ["0,0", "1,-1", "1,0", "0,1"].sort());
   const t = { id: "T1", kind: "torpedo", owner: 0, from: "p0s1", pos: toAxial(5, 11), vel: V(1, 0) };
   s.weapons.push(t);
   assert.equal(sanitizeOrders(s, 0, orders({}, { T1: V(-1, 0) })).torps.T1, undefined);
@@ -283,7 +288,7 @@ test("one weapon per ship and turn; torpedoes launch only forwards of a moving s
   assert.deepEqual(o.laser, V(1, 0));
   assert.equal(o.launch, null);
   const launches = weaponOptions(s, u, "torpedo").map((d) => `${d.q},${d.r}`).sort();
-  assert.deepEqual(launches, ["0,0", "0,1", "1,-1", "1,0"].sort());
+  assert.deepEqual(launches, ["0,0", "0,1", "1,-1", "1,0", "0,-1", "-1,1"].sort());
   // Two torpedoes in flight from the same ship, fired on consecutive turns.
   let r = resolveTurn(s, [orders({ p0s1: { launch: V(0, 0) } }), orders()]);
   r = resolveTurn(r.state, [orders({ p0s1: { launch: V(0, 0) } }), orders()]);
