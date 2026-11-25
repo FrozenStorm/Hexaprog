@@ -51,17 +51,20 @@ Geplant wird auf einer Hexagon-Kommandokarte pro Einheit, deren Mittelfeld der S
 
 ## Waffen
 
-Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen Torpedo. Ein abgefeuerter Waffen-Marker wird auf den Schwung-Marker des Schiffs oder ein angrenzendes Feld gelegt, nie auf das Schiff selbst. Sein Schwung ist der Abstand vom Schiff zum Marker; in Schritt 5 fliegt er nochmals um diesen Schwung weiter. Waffen treffen auch eigene Einheiten.
+Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen Torpedo. Waffen treffen auch eigene Einheiten.
 
 ### Laser
 
 - Schaden 1, kostet keine Energie.
-- Schadenszone: alle Felder in gerader Linie vom Schiff (nach seiner Bewegung) zum Laser-Marker, einmal vor und einmal nach der Bewegung des Lasers.
+- Der Laser-Marker wird **relativ zum Schiff** auf ein beliebiges Feld im Radius 3 um das Schiff gelegt (nicht auf das Schiff selbst).
+- Der Laser bewegt sich in diesem Zug mit dem Schiff mit: der Marker behält seine Lage relativ zum Schiff.
+- Schadenszone: alle Felder in gerader Linie vom Schiff zum Laser-Marker, einmal an der Startposition des Schiffs und einmal an seiner Endposition (nach der Bewegung). Wird das Schiff beim Bewegen zerstört, zählt nur die Linie an der Startposition.
 - Verläuft der Strahl genau auf der Grenze zwischen zwei Feldern, gehören **beide** Felder zur Schadenszone. Ist eines davon ein Planet, endet der Strahl dort; das andere Feld wird noch getroffen.
 - Getroffen wird jede Einheit, deren Flugweg in diesem Zug ein Feld der Schadenszone berührt, ausser das feuernde Schiff. Ein Laser trifft jede Einheit höchstens einmal pro Zug.
 - Der Laser verschwindet am Ende des Zuges.
 
 ### Torpedo
+
 
 - Schaden 2 an allen Einheiten im Radius 1 um den Torpedo.
 - Kostet 1 Torpedo aus dem Vorrat des Schiffs. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben (begrenzt nur durch den Vorrat).
@@ -72,10 +75,10 @@ Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen To
 ## Zugablauf
 
 1. **Zug planen** – beide Spieler legen geheim Schub und Waffen fest.
-2. **Waffen abfeuern** – Laser- und Torpedo-Marker werden gelegt.
+2. **Waffen abfeuern** – Laser-Marker werden relativ zum Schiff gelegt, Torpedo-Marker auf den Schwung-Marker des Schiffs oder ein angrenzendes Feld.
 3. **Schub anwenden** – die Schwung-Marker der Schiffe und Torpedos werden verschoben.
-4. **Schiffe bewegen** – alle Schiffe ziehen gleichzeitig auf ihren Schwung-Marker. Danach werden Zusammenstösse, Aufprall auf Planeten, Rammen von Basen und der Spielfeldrand ausgewertet, dann Torpedos an der Basis aufgefüllt.
-5. **Waffen bewegen** – alle Laser und Torpedos ziehen gleichzeitig gemäss ihrem Schwung. Vor und nach der Bewegung wird geprüft, welche Einheiten in einer Schadenszone sind. Der Schaden aller Waffen wird zusammengezählt und erst dann abgezogen.
+4. **Schiffe bewegen** – alle Schiffe ziehen gleichzeitig auf ihren Schwung-Marker, ihre Laser-Marker ziehen mit. Danach werden Zusammenstösse, Aufprall auf Planeten, Rammen von Basen und der Spielfeldrand ausgewertet, dann Torpedos an der Basis aufgefüllt.
+5. **Waffen auswerten und Torpedos bewegen** – Laser treffen alles, was in diesem Zug ihre Schadenszone berührt hat. Torpedos ziehen gleichzeitig gemäss ihrem Schwung; vor und nach der Bewegung wird geprüft, welche Einheiten in ihrem Radius sind. Der Schaden aller Waffen wird zusammengezählt und erst dann abgezogen.
 6. **Energie regenerieren** – jede Basis +2 (bis zum Maximum), Schiffe nicht.
 7. **Aufräumen** – Laser kommen vom Spielplan, Torpedos fliegen weiter.
 
@@ -88,6 +91,7 @@ Alle Zahlen und Schalter stehen in `engine/rules.js` und lassen sich im KI-Lab v
 | Zerstörung | `destroyWhen` | `zero`: schon bei 0 Energie zerstört |
 | Spielfeldrand | `edge` | `stop`: Schiff bleibt am Rand stehen |
 | Schiff auf Basis | `baseCollision`, `base.ramDamage` | `destroyBoth`, `ignore` |
+| Laser platzieren | `laser.mode`, `laser.range` | `momentum`: wie früher neben den Schwung-Marker (±1), fliegt weiter |
 | Laser auf Feldgrenze | `laser.edgeBoth` | aus: nur eines der beiden Felder |
 | Eine Waffe pro Zug | `oneWeaponPerTurn` | aus: Laser und Torpedo im selben Zug |
 | Torpedos nur vorwärts | `torpedo.forwardOnly` | aus: Schub in alle Richtungen |

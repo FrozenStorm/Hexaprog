@@ -1,8 +1,8 @@
 // Game screen: planning on the board, animated execution, game modes
 // (against the AI, duel on one device, AI vs AI, online, replay).
-import { add, eq, key, len, diskCached, line } from "../engine/hex.js";
+import { add, sub, eq, key, len, diskCached, line } from "../engine/hex.js";
 import {
-  newGame, resolveTurn, torpThrustOptions, inSetupZone, isPlanet, clearLine, setupZone, defaultSetup, validSetup, liveShips, unitById, torpsOf, emptyOrders, canFireLaser, canLaunch,
+  newGame, resolveTurn, torpThrustOptions, inSetupZone, isPlanet, clearLine, laserPreview, setupZone, defaultSetup, validSetup, liveShips, unitById, torpsOf, emptyOrders, canFireLaser, canLaunch,
   weaponOptions, maxEnergy, PLAYER_NAMES,
 } from "../engine/core.js";
 import { Board } from "./board.js";
@@ -281,7 +281,10 @@ function toolOptions() {
   if (!u || !u.alive) return [];
   const mom = add(u.pos, u.vel);
   if (G.sel.tool === "thrust") return diskCached(s.rules.ship.thrust).map((d) => ({ cell: add(mom, d), vec: d }));
-  if (G.sel.tool === "laser") return canFireLaser(s, u) ? weaponOptions(s, u, "laser").map((d) => ({ cell: add(mom, d), vec: d })) : [];
+  if (G.sel.tool === "laser") {
+    const base = s.rules.laser.mode === "ship" ? u.pos : mom;
+    return canFireLaser(s, u) ? weaponOptions(s, u, "laser").map((d) => ({ cell: add(base, d), vec: d })) : [];
+  }
   if (G.sel.tool === "launch") return canLaunch(s, u) ? weaponOptions(s, u, "torpedo").map((d) => ({ cell: add(mom, d), vec: d })) : [];
   if (G.sel.tool === "steer") {
     const w = s.weapons.find((x) => x.id === G.sel.torp);
@@ -310,10 +313,10 @@ function renderOverlay() {
     const end = add(add(u.pos, u.vel), o.thrust || { q: 0, r: 0 });
     const vel = add(u.vel, o.thrust || { q: 0, r: 0 });
     if (o.laser) {
-      const lv = add(u.vel, o.laser), lpos = add(u.pos, lv);
-      b.zone(clearLine(s.rules, end, add(lpos, lv)), "laser");
-      b.arrow(lpos, add(lpos, lv), "laser");
-      markers.push([lpos, "laser", lv]);
+      const lp = laserPreview(s.rules, u, o.laser, end);
+      b.zone(lp.cells, "laser");
+      b.arrow(lp.spawn, lp.to, "laser");
+      markers.push([lp.spawn, "laser", sub(lp.to, lp.spawn)]);
     }
     b.arrow(u.pos, end, `p${p}`, p);
     if (!eq(u.pos, end)) b.ghost(end, `p${p}`);

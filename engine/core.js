@@ -177,8 +177,13 @@ const inDisk = (v, n) => v && Number.isInteger(v.q) && Number.isInteger(v.r) && 
 export const canFireLaser = (s, u) => u.alive && u.kind === "ship" && u.energy >= s.rules.laser.cost;
 export const canLaunch = (s, u) => u.alive && u.kind === "ship" && u.torpedoes > 0 && (!s.rules.torpedo.perShip || torpsOf(s, u.id).length < s.rules.torpedo.perShip);
 
-/** Weapon vectors (relative to the ship's momentum marker) that are allowed. A weapon must leave the ship. */
+/**
+ * Weapon vectors that are allowed. Torpedoes (and lasers in laser.mode "momentum") are
+ * placed relative to the ship's momentum marker and must leave the ship. Lasers in
+ * laser.mode "ship" are aimed relative to the ship itself, up to laser.range hexes away.
+ */
 export function weaponOptions(s, u, kind) {
+  if (kind === "laser" && s.rules.laser.mode === "ship") return diskCached(s.rules.laser.range).filter((d) => len(d) > 0);
   const spread = kind === "laser" ? s.rules.laser.spread : s.rules.torpedo.spread;
   let opts = diskCached(spread).filter((d) => len(add(u.vel, d)) > 0);
   // Torpedos only accelerate: launched forward of a moving ship, never backwards.
@@ -214,7 +219,7 @@ export function sanitizeOrders(s, owner, orders) {
     const uo = (o.units && o.units[u.id]) || {};
     const v = { thrust: null, laser: null, launch: null };
     if (inDisk(uo.thrust, s.rules.ship.thrust)) v.thrust = { q: uo.thrust.q, r: uo.thrust.r };
-    if (uo.laser && canFireLaser(s, u) && inDisk(uo.laser, s.rules.laser.spread) && len(add(u.vel, uo.laser)) > 0) v.laser = { q: uo.laser.q, r: uo.laser.r };
+    if (uo.laser && canFireLaser(s, u) && weaponOptions(s, u, "laser").some((d) => eq(d, uo.laser))) v.laser = { q: uo.laser.q, r: uo.laser.r };
     if (uo.launch && canLaunch(s, u) && weaponOptions(s, u, "torpedo").some((d) => eq(d, uo.launch))) v.launch = { q: uo.launch.q, r: uo.launch.r };
     // One weapon per ship and turn: a laser or a torpedo.
     if (s.rules.oneWeaponPerTurn && v.laser && v.launch) v.launch = null;
@@ -265,8 +270,13 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     if (!o) continue;
     if (o.laser) {
       u.energy -= R.laser.cost;
-      const vel = add(u.vel, o.laser);
-      s.weapons.push({ id: `L${s.nextId++}`, kind: "laser", owner: u.owner, from: u.id, pos: add(u.pos, vel), vel });
+      if (R.laser.mode === "ship") {
+        // Aimed relative to the ship; the beam moves along with the ship this turn.
+        s.weapons.push({ id: `L${s.nextId++}`, kind: "laser", owner: u.owner, from: u.id, pos: add(u.pos, o.laser), vel: { ...ZERO }, aim: { ...o.laser }, origin: { ...u.pos } });
+      } else {
+        const vel = add(u.vel, o.laser);
+        s.weapons.push({ id: `L${s.nextId++}`, kind: "laser", owner: u.owner, from: u.id, pos: add(u.pos, vel), vel });
+      }
       stats.lasers[u.owner]++;
     }
     if (o.launch) {
@@ -375,6 +385,12 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
       moveFx.push({ type: "refill", id: u.id });
     }
   }
+  // Lasers aimed relative to a ship move along with it.
+  for (const w of s.weapons) {
+    if (w.kind !== "laser" || !w.aim) continue;
+    const ship = unitById(s, w.from);
+    if (ship.alive) w.pos = add(ship.pos, w.aim);
+  }
   if (rec) frames.push(snapshot(s, "move", moveFx));
 
   // 5. Weapons move by their momentum; damage is checked before and after.
@@ -415,11 +431,19 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
     const ship = unitById(s, w.from);
     const zone = new Set();
     // Planets block the beam: the zone ends in front of the first planet.
-    const z1 = clearLine(R, ship.pos, w.pos);
-    for (const c of z1) zone.add(key(c));
+    let z1, z2, from = ship.pos;
     const before = { ...w.pos };
-    w.pos = add(w.pos, w.vel);
-    const z2 = clearLine(R, ship.pos, w.pos);
+    if (w.aim) {
+      // Beam at the ship's start position, then (moved along with the ship) at its end position.
+      z1 = clearLine(R, w.origin, add(w.origin, w.aim));
+      z2 = ship.alive ? clearLine(R, ship.pos, add(ship.pos, w.aim)) : [];
+      if (!ship.alive) from = w.origin;
+    } else {
+      z1 = clearLine(R, ship.pos, w.pos);
+      w.pos = add(w.pos, w.vel);
+      z2 = clearLine(R, ship.pos, w.pos);
+    }
+    for (const c of z1) zone.add(key(c));
     for (const c of z2) zone.add(key(c));
     for (const u of alive) {
       if (u.id === ship.id) continue;
@@ -427,7 +451,8 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
       const path = paths.get(u.id) || [u.pos];
       if (path.some((c) => zone.has(key(c)))) hit(u, R.laser.damage, "laser");
     }
-    fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...(z2[z2.length - 1] || ship.pos) } });
+    const last = z2.length ? z2 : z1;
+    fx.push({ type: "laser", owner: w.owner, from: { ...from }, before, to: { ...(last[last.length - 1] || from) } });
   }
   // Torpedoes: check before the move, move, check after the move; each check is simultaneous.
   let torps = s.weapons.filter((w) => w.kind === "torpedo");
@@ -486,11 +511,17 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
 /** Where a ship will be after this turn's thrust (for previews). */
 export const predictedPos = (u, thrust) => add(add(u.pos, u.vel), thrust || ZERO);
 
-/** Laser zone preview: line from the ship's new position to the laser marker after its move. */
-export function laserPreview(rules, u, laserVec, thrust) {
-  const vel = add(u.vel, laserVec);
-  const marker = add(add(u.pos, vel), vel);
-  return { from: predictedPos(u, thrust), spawn: add(u.pos, vel), to: marker, cells: clearLine(rules, predictedPos(u, thrust), marker) };
+/**
+ * Laser preview for ship u firing laser vector d and ending at `end`: where the marker is
+ * placed (`spawn`), where it ends (`to`) and all hexes of the damage zone (`cells`).
+ */
+export function laserPreview(rules, u, d, end) {
+  if (rules.laser.mode === "ship") {
+    const spawn = add(u.pos, d), to = add(end, d);
+    return { spawn, to, cells: [...clearLine(rules, u.pos, spawn), ...clearLine(rules, end, to)] };
+  }
+  const vel = add(u.vel, d), spawn = add(u.pos, vel), to = add(spawn, vel);
+  return { spawn, to, cells: [...clearLine(rules, end, spawn), ...clearLine(rules, end, to)] };
 }
 
 export { sub };

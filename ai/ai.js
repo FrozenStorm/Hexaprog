@@ -11,7 +11,7 @@
 
 import { add, len, dist, diskCached, line, key } from "../engine/hex.js";
 import {
-  resolveTurn, liveShips, liveUnits, emptyOrders, canFireLaser, canLaunch, weaponOptions, onBoard, torpThrustOptions, moveOk, clearLine,
+  resolveTurn, liveShips, liveUnits, emptyOrders, canFireLaser, canLaunch, weaponOptions, onBoard, torpThrustOptions, moveOk, clearLine, laserPreview,
 } from "../engine/core.js";
 import { evaluate } from "./eval.js";
 import { makeRng } from "./rng.js";
@@ -51,8 +51,7 @@ export function reflexPlan(s, p, rng, chaos = 0.5) {
     if (canFireLaser(s, u)) {
       let best = null, bestN = 0;
       for (const d of weaponOptions(s, u, "laser")) {
-        const vel = add(u.vel, d);
-        const zone = new Set(clearLine(R, end, add(add(u.pos, vel), vel)).map(key));
+        const zone = new Set(laserPreview(R, u, d, end).cells.map(key));
         let n = 0;
         for (const e of enemies) {
           if (zone.has(key(e.pos)) || zone.has(key(add(e.pos, e.vel)))) n++;

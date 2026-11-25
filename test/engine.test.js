@@ -6,6 +6,8 @@ import { line, dist, toAxial, toOffset, sub } from "../engine/hex.js";
 const V = (q, r) => ({ q, r });
 const place = (s, id, pos, vel = V(0, 0)) => { const u = unitById(s, id); u.pos = pos; u.vel = vel; return u; };
 const orders = (units = {}, torps = {}) => ({ units, torps });
+/** Old laser variant: placed next to the momentum marker and flying on. */
+const MOM = { laser: { mode: "momentum" } };
 /** Move all units far apart in a neutral spot so a test only looks at the units it places. */
 function quiet(s) {
   s.units.forEach((u, i) => { u.pos = toAxial(i % 2 ? 12 : 0, 2 * Math.floor(i / 2)); });
@@ -88,7 +90,7 @@ test("leaving the board destroys the ship", () => {
 });
 
 test("laser hits a unit standing in the zone; lasers cost nothing, ships do not regenerate", () => {
-  const s = quiet(newGame());
+  const s = quiet(newGame(MOM));
   const c = toAxial(4, 10);
   place(s, "p0s1", c, V(1, 0));
   // laser vel = (2,0): spawn at c+2, after move at c+4; ship ends at c+1 -> zone c+1..c+4
@@ -102,7 +104,7 @@ test("laser hits a unit standing in the zone; lasers cost nothing, ships do not 
 });
 
 test("laser hits a ship that flies through the zone, only once", () => {
-  const s = quiet(newGame());
+  const s = quiet(newGame(MOM));
   const c = toAxial(4, 10);
   place(s, "p0s1", c, V(1, 0));
   // Enemy crosses the zone vertically.
@@ -160,7 +162,7 @@ test("losing two units loses the game", () => {
 });
 
 test("hit destroys only when damage exceeds energy (default)", () => {
-  const s = quiet(newGame());
+  const s = quiet(newGame(MOM));
   const c = toAxial(4, 10);
   place(s, "p0s1", c, V(1, 0));
   const e = place(s, "p1s1", add(c, V(3, 0)));
@@ -254,7 +256,7 @@ test("torpedo thrust never makes the flight line shorter", async () => {
 
 test("planets: ships crash, lasers are blocked, torpedoes are lost", async () => {
   const { isPlanet, clearLine } = await import("../engine/core.js");
-  const s = quiet(newGame());
+  const s = quiet(newGame(MOM));
   const planet = toAxial(6, 9);
   assert.ok(isPlanet(s.rules, planet));
   // Ship flying through the planet.
@@ -263,14 +265,14 @@ test("planets: ships crash, lasers are blocked, torpedoes are lost", async () =>
   assert.equal(unitById(r.state, "p0s1").alive, false);
   assert.equal(r.stats.destroyed[0].cause, "planet");
   // Laser behind a planet does not hit.
-  const s2 = quiet(newGame());
+  const s2 = quiet(newGame(MOM));
   place(s2, "p0s1", add(planet, V(-2, 0)), V(1, 0));
   place(s2, "p1s1", add(planet, V(1, 0)));
   r = resolveTurn(s2, [orders({ p0s1: { laser: V(1, 0) } }), orders()]);
   assert.equal(unitById(r.state, "p1s1").energy, 6);
   assert.equal(clearLine(s2.rules, add(planet, V(-2, 0)), add(planet, V(2, 0))).length, 2);
   // Without planets the same laser hits.
-  const s3 = quiet(newGame({ planets: false }));
+  const s3 = quiet(newGame({ ...MOM, planets: false }));
   place(s3, "p0s1", add(planet, V(-2, 0)), V(1, 0));
   place(s3, "p1s1", add(planet, V(1, 0)));
   r = resolveTurn(s3, [orders({ p0s1: { laser: V(1, 0) } }), orders()]);
@@ -321,14 +323,14 @@ test("torpedoes intercept enemy torpedoes; blasts destroy torpedoes in range", a
 test("laser along the border of two hexes hits both", async () => {
   const { clearLine } = await import("../engine/core.js");
   const { setRule } = await import("../engine/rules.js");
-  const s = newGame();
+  const s = newGame(MOM);
   const c = toAxial(2, 8);
   const cells = clearLine(s.rules, c, add(c, V(1, 1))).map((x) => `${x.q - c.q},${x.r - c.r}`).sort();
   assert.deepEqual(cells, ["0,0", "0,1", "1,0", "1,1"].sort());
   const off = clearLine(setRule(s.rules, "laser.edgeBoth", false), c, add(c, V(1, 1)));
   assert.equal(off.length, 3);
   // In a real turn: two enemies left and right of the border line both take damage.
-  const g = quiet(newGame());
+  const g = quiet(newGame(MOM));
   // Ship flies with momentum (1,1) and fires straight ahead: the beam runs from c+(1,1)
   // to c+(2,2), exactly along the border of c+(2,1) and c+(1,2).
   place(g, "p0s1", c, V(1, 1));
@@ -338,4 +340,26 @@ test("laser along the border of two hexes hits both", async () => {
   assert.ok(r.state.weapons.length === 0);
   assert.equal(unitById(r.state, "p1s1").energy, 5);
   assert.equal(unitById(r.state, "p1s2").energy, 5);
+});
+
+test("laser aimed relative to the ship (range 3) moves along with the ship", async () => {
+  const { weaponOptions } = await import("../engine/core.js");
+  const s = quiet(newGame());
+  const c = toAxial(3, 10);
+  const u = place(s, "p0s1", c, V(2, 0));
+  // 36 aim hexes around the ship (radius 3 without the ship itself).
+  assert.equal(weaponOptions(s, u, "laser").length, 36);
+  assert.equal(sanitizeOrders(s, 0, orders({ p0s1: { laser: V(0, -4) } })).units.p0s1.laser, null);
+  // Aim 3 hexes "down-right" (0,3): beam from c, then from c+(2,0) after the move.
+  place(s, "p1s1", add(c, V(0, 3)));      // hit by the beam at the start position
+  place(s, "p1s2", add(c, V(2, 2)));      // hit by the beam after the move
+  place(s, "p1s3", add(c, V(1, 2)));      // between the two beams: not hit
+  const r = resolveTurn(s, [orders({ p0s1: { laser: V(0, 3) } }), orders()]);
+  assert.equal(unitById(r.state, "p1s1").energy, 5);
+  assert.equal(unitById(r.state, "p1s2").energy, 5);
+  assert.equal(unitById(r.state, "p1s3").energy, 6);
+  assert.equal(unitById(r.state, "p0s1").energy, 6);
+  // The laser marker moved along with the ship in the move frame.
+  const mv = r.frames.find((f) => f.phase === "move");
+  assert.deepEqual(mv.weapons.find((w) => w.kind === "laser").pos, add(c, V(2, 3)));
 });
