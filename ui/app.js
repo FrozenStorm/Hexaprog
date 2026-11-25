@@ -446,7 +446,11 @@ function onCell(c) {
       const o = unitOrders(p, G.sel.id);
       const cur = o[G.sel.tool];
       if (G.sel.tool === "thrust") o.thrust = opt.vec;
-      else o[G.sel.tool] = cur && eq(cur, opt.vec) ? null : opt.vec; // tap again to cancel
+      else {
+        o[G.sel.tool] = cur && eq(cur, opt.vec) ? null : opt.vec; // tap again to cancel
+        // One weapon per turn: choosing a laser cancels the torpedo and vice versa.
+        if (G.state.rules.oneWeaponPerTurn && o[G.sel.tool]) o[G.sel.tool === "laser" ? "launch" : "laser"] = null;
+      }
     }
     render();
     return;

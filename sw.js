@@ -1,6 +1,6 @@
 // Service worker: the game works offline (except the online lobby).
 // Network first, so a new version is used as soon as it is online.
-const CACHE_NAME = "hexaprog-v3";
+const CACHE_NAME = "hexaprog-v4";
 const ASSETS = [
   "./", "index.html", "site.webmanifest", "icon/icon.svg",
   "engine/hex.js", "engine/rules.js", "engine/core.js",
@@ -18,7 +18,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then((res) => {
+  // "no-cache" asks the server every time, so a new version shows up at once.
+  e.respondWith(fetch(e.request, { cache: "no-cache" }).then((res) => {
     const copy = res.clone();
     caches.open(CACHE_NAME).then((c) => c.put(e.request, copy));
     return res;

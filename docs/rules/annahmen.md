@@ -27,3 +27,4 @@ Zu Punkt 13: Auch die **Basis** wird frei in der eigenen Zone aufgestellt (best�
 ## Spätere Änderungen
 
 - **25.11.2026:** Schiffe regenerieren keine Energie mehr, dafür kosten Laser keine Energie (`ship.regen: 0`, `laser.cost: 0`). Die Basis regeneriert weiter +2.
+- **25.11.2026:** Pro Zug feuert jedes Schiff höchstens eine Waffe, einen Laser oder einen Torpedo (`oneWeaponPerTurn`); mehrere Torpedos dürfen gleichzeitig fliegen. Torpedos können nur beschleunigen: auch der Abschuss aus einem fliegenden Schiff geht nur nach vorne (`torpedo.forwardOnly`).

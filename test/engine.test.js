@@ -274,3 +274,18 @@ test("planets: ships crash, lasers are blocked, torpedoes are lost", async () =>
   const su = defaultSetup(s.rules, 0);
   assert.ok(!validSetup(s.rules, 0, { ...su, base: toAxial(3, 15) }));
 });
+
+test("one weapon per ship and turn; torpedoes launch only forwards of a moving ship", async () => {
+  const { weaponOptions } = await import("../engine/core.js");
+  const s = quiet(newGame());
+  const u = place(s, "p0s1", toAxial(4, 11), V(1, 0));
+  const o = sanitizeOrders(s, 0, orders({ p0s1: { laser: V(1, 0), launch: V(1, 0) } })).units.p0s1;
+  assert.deepEqual(o.laser, V(1, 0));
+  assert.equal(o.launch, null);
+  const launches = weaponOptions(s, u, "torpedo").map((d) => `${d.q},${d.r}`).sort();
+  assert.deepEqual(launches, ["0,0", "0,1", "1,-1", "1,0"].sort());
+  // Two torpedoes in flight from the same ship, fired on consecutive turns.
+  let r = resolveTurn(s, [orders({ p0s1: { launch: V(0, 0) } }), orders()]);
+  r = resolveTurn(r.state, [orders({ p0s1: { launch: V(0, 0) } }), orders()]);
+  assert.equal(r.state.weapons.filter((w) => w.from === "p0s1").length, 2);
+});

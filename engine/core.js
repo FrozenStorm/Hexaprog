@@ -171,7 +171,17 @@ export const canLaunch = (s, u) => u.alive && u.kind === "ship" && u.torpedoes >
 /** Weapon vectors (relative to the ship's momentum marker) that are allowed. A weapon must leave the ship. */
 export function weaponOptions(s, u, kind) {
   const spread = kind === "laser" ? s.rules.laser.spread : s.rules.torpedo.spread;
-  return diskCached(spread).filter((d) => len(add(u.vel, d)) > 0);
+  let opts = diskCached(spread).filter((d) => len(add(u.vel, d)) > 0);
+  // Torpedos only accelerate: launched forward of a moving ship, never backwards.
+  if (kind === "torpedo" && s.rules.torpedo.forwardOnly && len(u.vel) > 0) opts = opts.filter((d) => forwardOk(d, u.vel));
+  return opts;
+}
+
+/** d is zero or points into the front half of v (angle below 90 degrees). */
+function forwardOk(d, v) {
+  // Dot product in screen space (pointy-top hexes): x = q + r/2, y = r * sqrt(3)/2.
+  const dot = (d.q + d.r / 2) * (v.q + v.r / 2) + 0.75 * d.r * v.r;
+  return len(d) === 0 || dot > 1e-9;
 }
 
 /**
@@ -182,9 +192,7 @@ export function weaponOptions(s, u, kind) {
 export function torpThrustOptions(s, w) {
   const all = diskCached(s.rules.torpedo.thrust);
   if (!s.rules.torpedo.forwardOnly || len(w.vel) === 0) return all;
-  // Dot product in screen space (pointy-top hexes): x = q + r/2, y = r * sqrt(3)/2.
-  const dot = (a, b) => (a.q + a.r / 2) * (b.q + b.r / 2) + 0.75 * a.r * b.r;
-  return all.filter((d) => len(d) === 0 || dot(d, w.vel) > 1e-9);
+  return all.filter((d) => forwardOk(d, w.vel));
 }
 
 /** Keep only the legal parts of a player's orders. */
@@ -196,7 +204,9 @@ export function sanitizeOrders(s, owner, orders) {
     const v = { thrust: null, laser: null, launch: null };
     if (inDisk(uo.thrust, s.rules.ship.thrust)) v.thrust = { q: uo.thrust.q, r: uo.thrust.r };
     if (uo.laser && canFireLaser(s, u) && inDisk(uo.laser, s.rules.laser.spread) && len(add(u.vel, uo.laser)) > 0) v.laser = { q: uo.laser.q, r: uo.laser.r };
-    if (uo.launch && canLaunch(s, u) && inDisk(uo.launch, s.rules.torpedo.spread) && len(add(u.vel, uo.launch)) > 0) v.launch = { q: uo.launch.q, r: uo.launch.r };
+    if (uo.launch && canLaunch(s, u) && weaponOptions(s, u, "torpedo").some((d) => eq(d, uo.launch))) v.launch = { q: uo.launch.q, r: uo.launch.r };
+    // One weapon per ship and turn: a laser or a torpedo.
+    if (s.rules.oneWeaponPerTurn && v.laser && v.launch) v.launch = null;
     out.units[u.id] = v;
   }
   for (const w of s.weapons) {

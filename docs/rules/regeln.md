@@ -70,5 +70,6 @@ Fliegt ein Schiff auf das Feld einer Basis (auch der eigenen), wird das Schiff z
 ### Torpedo
 - Schaden 2, Schadenszone 1 Feld Radius um den Torpedo-Marker.
 - Initialer Schwung: Schwung des Schiffs ±1, danach Schub 1 (wird jeden Zug auf der Torpedo-Kommandokarte geplant). Torpedos werden wie Schiffe über Schub gesteuert, haben aber nur Vorwärtsschub: der Schub darf nur in die vordere Hälfte der aktuellen Flugrichtung gelegt werden (geradeaus oder schräg nach vorne).
-- Kosten: 1 Torpedo aus dem Schiffsvorrat. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben.
+- Kosten: 1 Torpedo aus dem Schiffsvorrat. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben, aber pro Zug höchstens **eine Waffe** abfeuern: einen Laser oder einen Torpedo.
+- Torpedos können nur beschleunigen: auch beim Abschuss aus einem fliegenden Schiff darf der Marker nur nach vorne (geradeaus oder schräg nach vorne) gelegt werden, nie zurück.
 - Fliegt weiter wie ein Schiff und detoniert automatisch, wenn eine gegnerische Einheit in seiner Schadenszone ist oder wenn er direkt auf eine eigene Einheit fliegt. In beiden Fällen erleiden alle Einheiten in der Schadenszone Schaden.

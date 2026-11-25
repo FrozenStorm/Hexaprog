@@ -12,7 +12,10 @@ export const DEFAULT_RULES = Object.freeze({
 
   laser: { damage: 1, cost: 0, spread: 1 },
   torpedo: { damage: 2, radius: 1, thrust: 1, spread: 1, perShip: 0, forwardOnly: true },
-  // perShip 0 = any number of torpedoes in flight; forwardOnly: torpedo thrust only into the front half
+  // perShip 0 = any number of torpedoes in flight; forwardOnly: torpedos only accelerate
+  // (launch and thrust only into the front half of the flight direction)
+  /** Each ship fires at most one weapon per turn: a laser or a torpedo. */
+  oneWeaponPerTurn: true,
 
   // Assumptions (not in the rule sheet yet, see docs/rules/annahmen.md):
   /** A hit destroys a unit when the damage is larger than its energy ("negative") or when energy reaches 0 ("zero"). */
@@ -62,7 +65,7 @@ export const RULE_FIELDS = [
   ["base.energy", "Basis Energie"], ["base.regen", "Basis Regeneration"], ["base.ramDamage", "Basis Schaden durch Rammen"],
   ["laser.damage", "Laser Schaden"], ["laser.cost", "Laser Kosten"], ["laser.spread", "Laser Abweichung"],
   ["torpedo.damage", "Torpedo Schaden"], ["torpedo.radius", "Torpedo Radius"], ["torpedo.thrust", "Torpedo Schub"],
-  ["torpedo.spread", "Torpedo Abweichung"], ["torpedo.forwardOnly", "Torpedo nur Vorwärtsschub", [true, false]], ["torpedo.perShip", "Torpedos gleichzeitig pro Schiff (0 = beliebig)"],
+  ["torpedo.spread", "Torpedo Abweichung"], ["torpedo.forwardOnly", "Torpedo nur Vorwärtsschub", [true, false]], ["oneWeaponPerTurn", "Nur 1 Waffe pro Schiff und Zug", [true, false]], ["torpedo.perShip", "Torpedos gleichzeitig pro Schiff (0 = beliebig)"],
   ["lossLimit", "Verlorene Einheiten bis Niederlage"], ["maxTurns", "Max. Züge"],
   ["destroyWhen", "Zerstört bei", ["negative", "zero"]],
   ["edge", "Spielfeldrand", ["destroy", "stop"]],
