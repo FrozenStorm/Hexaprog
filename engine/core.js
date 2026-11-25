@@ -240,7 +240,7 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
   const R = s.rules;
   const rec = opts.frames !== false;
   const frames = [];
-  const stats = { lasers: [0, 0], launches: [0, 0], destroyed: [] };
+  const stats = { lasers: [0, 0], launches: [0, 0], intercepted: [0, 0], destroyed: [] };
   if (s.over) return { state: s, frames, stats };
   const orders = [0, 1].map((p) => sanitizeOrders(s, p, ordersBoth[p]));
   if (rec) frames.push(snapshot(s, "start"));
@@ -377,39 +377,60 @@ export function resolveTurn(state, ordersBoth, opts = {}) {
   const fx = [];
   const alive = s.units.filter((u) => u.alive);
   const enemyNear = (w, pos) => alive.some((u) => u.owner !== w.owner && dist(u.pos, pos) <= R.torpedo.radius);
+  // Interception: enemy torpedoes in range also trigger a torpedo, and every
+  // detonation destroys the other torpedoes in its blast (they do not explode).
+  const intercept = !!R.torpedo.intercept;
+  const torpNear = (w, pos, list) => intercept && list.some((t) => t !== w && t.owner !== w.owner && dist(t.pos, pos) <= R.torpedo.radius);
   const detonate = (w, pos) => {
     for (const u of alive) if (dist(u.pos, pos) <= R.torpedo.radius) hit(u, R.torpedo.damage, "torpedo");
     fx.push({ type: "explosion", pos: { ...pos }, radius: R.torpedo.radius, owner: w.owner });
     w.gone = true;
   };
-  for (const w of s.weapons) {
-    if (w.kind === "laser") {
-      const ship = unitById(s, w.from);
-      const zone = new Set();
-      // Planets block the beam: the zone ends in front of the first planet.
-      const z1 = clearLine(R, ship.pos, w.pos);
-      for (const c of z1) zone.add(key(c));
-      const before = { ...w.pos };
-      w.pos = add(w.pos, w.vel);
-      const z2 = clearLine(R, ship.pos, w.pos);
-      for (const c of z2) zone.add(key(c));
-      for (const u of alive) {
-        if (u.id === ship.id) continue;
-        if (u.owner === w.owner && !R.friendlyFire) continue;
-        const path = paths.get(u.id) || [u.pos];
-        if (path.some((c) => zone.has(key(c)))) hit(u, R.laser.damage, "laser");
+  // All torpedoes of a check detonate together, then the blasts take out the rest in range.
+  const blast = (boom, list) => {
+    for (const w of boom) detonate(w, w.pos);
+    if (!intercept) return;
+    for (const t of list) {
+      if (t.gone) continue;
+      if (boom.some((w) => dist(w.pos, t.pos) <= R.torpedo.radius)) {
+        t.gone = true;
+        stats.intercepted[t.owner]++;
+        fx.push({ type: "intercept", pos: { ...t.pos }, owner: t.owner });
       }
-      fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...(z2[z2.length - 1] || ship.pos) } });
-    } else {
-      if (enemyNear(w, w.pos)) { detonate(w, w.pos); continue; }
-      const target = add(w.pos, w.vel);
-      const crash = line(w.pos, target).find((c, i) => i > 0 && isPlanet(R, c));
-      w.pos = target;
-      if (crash) { w.gone = true; fx.push({ type: "fizzle", pos: { ...crash } }); continue; }
-      if (!onBoard(R, target)) { w.gone = true; fx.push({ type: "fizzle", pos: { ...target } }); continue; }
-      if (alive.some((u) => u.owner === w.owner && eq(u.pos, target)) || enemyNear(w, target)) detonate(w, target);
     }
+  };
+  for (const w of s.weapons) {
+    if (w.kind !== "laser") continue;
+    const ship = unitById(s, w.from);
+    const zone = new Set();
+    // Planets block the beam: the zone ends in front of the first planet.
+    const z1 = clearLine(R, ship.pos, w.pos);
+    for (const c of z1) zone.add(key(c));
+    const before = { ...w.pos };
+    w.pos = add(w.pos, w.vel);
+    const z2 = clearLine(R, ship.pos, w.pos);
+    for (const c of z2) zone.add(key(c));
+    for (const u of alive) {
+      if (u.id === ship.id) continue;
+      if (u.owner === w.owner && !R.friendlyFire) continue;
+      const path = paths.get(u.id) || [u.pos];
+      if (path.some((c) => zone.has(key(c)))) hit(u, R.laser.damage, "laser");
+    }
+    fx.push({ type: "laser", owner: w.owner, from: { ...ship.pos }, before, to: { ...(z2[z2.length - 1] || ship.pos) } });
   }
+  // Torpedoes: check before the move, move, check after the move; each check is simultaneous.
+  let torps = s.weapons.filter((w) => w.kind === "torpedo");
+  blast(torps.filter((w) => enemyNear(w, w.pos) || torpNear(w, w.pos, torps)), torps);
+  torps = torps.filter((w) => !w.gone);
+  for (const w of torps) {
+    const target = add(w.pos, w.vel);
+    const crash = line(w.pos, target).find((c, i) => i > 0 && isPlanet(R, c));
+    w.pos = target;
+    if (crash) { w.gone = true; fx.push({ type: "fizzle", pos: { ...crash } }); continue; }
+    if (!onBoard(R, target)) { w.gone = true; fx.push({ type: "fizzle", pos: { ...target } }); }
+  }
+  torps = torps.filter((w) => !w.gone);
+  blast(torps.filter((w) => alive.some((u) => u.owner === w.owner && eq(u.pos, w.pos)) || enemyNear(w, w.pos) || torpNear(w, w.pos, torps)), torps);
   for (const [id, d] of damage) {
     const u = unitById(s, id);
     u.energy -= d.amount;

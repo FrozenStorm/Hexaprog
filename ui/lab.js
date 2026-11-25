@@ -175,9 +175,9 @@ function renderResults() {
   const lv = (r) => `${LEVEL_NAMES[r.level1]} – ${LEVEL_NAMES[r.level2]}`;
   res.innerHTML = `
     <table><thead><tr><th>Variante</th><th>Spiele</th><th>Sieg S1</th><th>Sieg S2</th><th>Unent.</th><th>Ø Züge</th><th>Zeitlimit</th>
-      <th>Laser/Spiel</th><th>Torpedos/Spiel</th><th>Verluste: Laser</th><th>Torpedo</th><th>Kollision</th><th>Rand</th><th>Planet</th></tr></thead>
+      <th>Laser/Spiel</th><th>Torpedos/Spiel</th><th>Abgefangen</th><th>Verluste: Laser</th><th>Torpedo</th><th>Kollision</th><th>Rand</th><th>Planet</th></tr></thead>
     <tbody>${sums.map((s) => `<tr><td>${esc(s.variant)}</td><td>${s.games}</td><td>${pct(s.win1)}</td><td>${pct(s.win2)}</td><td>${pct(s.draw)}</td>
-      <td>${s.turns.toFixed(1)}</td><td>${pct(s.timeouts)}</td><td>${s.lasers.toFixed(1)}</td><td>${s.torpedoes.toFixed(1)}</td>
+      <td>${s.turns.toFixed(1)}</td><td>${pct(s.timeouts)}</td><td>${s.lasers.toFixed(1)}</td><td>${s.torpedoes.toFixed(1)}</td><td>${s.intercepted.toFixed(1)}</td>
       <td>${s.byLaser.toFixed(2)}</td><td>${s.byTorpedo.toFixed(2)}</td><td>${s.byCollision.toFixed(2)}</td><td>${s.byEdge.toFixed(2)}</td><td>${s.byPlanet.toFixed(2)}</td></tr>`).join("")}</tbody></table>
     <p class="hint">Verluste sind zerstörte Einheiten pro Spiel nach Ursache (beide Spieler zusammen). „Sieg S1“ ist Spieler 1 (unten).</p>
     ${!lab.running && k ? `<div class="row"><button id="lab-csv">Tabelle (CSV)</button><button id="lab-json">Alle Replays (JSON)</button>${lab.results.some((r) => r.gif) ? '<button id="lab-gifs">Alle Videos (ZIP)</button>' : ""}</div>

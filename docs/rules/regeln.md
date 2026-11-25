@@ -65,7 +65,8 @@ Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen To
 - Schaden 2 an allen Einheiten im Radius 1 um den Torpedo.
 - Kostet 1 Torpedo aus dem Vorrat des Schiffs. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben (begrenzt nur durch den Vorrat).
 - Torpedos können **nur beschleunigen**: Schon beim Abschuss aus einem fliegenden Schiff darf der Marker nur geradeaus oder schräg nach vorne gelegt werden, nie zurück. Ab dem Folgezug wird jeder Torpedo wie ein Schiff mit Schub 1 gesteuert, aber ebenfalls nur nach vorne (geradeaus oder 60° schräg nach vorne).
-- Detonation: vor der Bewegung, wenn ein Gegner im Radius ist; nach der Bewegung, wenn ein Gegner im Radius ist oder der Torpedo direkt auf eine eigene Einheit fliegt. Bei einer Detonation erleiden alle Einheiten im Radius Schaden.
+- Detonation: vor der Bewegung, wenn eine gegnerische Einheit oder ein gegnerischer Torpedo im Radius ist; nach der Bewegung ebenso, oder wenn der Torpedo direkt auf eine eigene Einheit fliegt. Bei einer Detonation erleiden alle Einheiten im Radius Schaden.
+- **Abfangen:** Jede Detonation zerstört alle anderen Torpedos im Radius (auch eigene); diese explodieren nicht selbst. So kann ein Torpedo gezielt einem gegnerischen Torpedo entgegengesteuert werden. Alle Torpedos werden gleichzeitig geprüft: zwei Torpedos, die sich gegenseitig auslösen, detonieren beide.
 
 ## Zugablauf
 
@@ -88,6 +89,7 @@ Alle Zahlen und Schalter stehen in `engine/rules.js` und lassen sich im KI-Lab v
 | Schiff auf Basis | `baseCollision`, `base.ramDamage` | `destroyBoth`, `ignore` |
 | Eine Waffe pro Zug | `oneWeaponPerTurn` | aus: Laser und Torpedo im selben Zug |
 | Torpedos nur vorwärts | `torpedo.forwardOnly` | aus: Schub in alle Richtungen |
+| Torpedos fangen Torpedos ab | `torpedo.intercept` | aus: Torpedos ignorieren sich |
 | Torpedos pro Schiff im Flug | `torpedo.perShip` | 0 = beliebig viele |
 | Planeten | `planets` | aus: farbige Felder nur Orientierung |
 | Eigenbeschuss | `friendlyFire` | aus |

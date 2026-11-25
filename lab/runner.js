@@ -17,7 +17,7 @@ export function playGame(game) {
   const row = {
     id: game.id, variant: game.variant, level1: game.levels[0], level2: game.levels[1], seed: game.seed,
     winner: null, turns: 0, endReason: null, losses1: 0, losses2: 0,
-    lasers1: 0, lasers2: 0, torpedoes1: 0, torpedoes2: 0,
+    lasers1: 0, lasers2: 0, torpedoes1: 0, torpedoes2: 0, intercepted: 0,
     byLaser: 0, byTorpedo: 0, byCollision: 0, byEdge: 0, byPlanet: 0, ownLosses: 0,
   };
   while (!s.over) {
@@ -26,6 +26,7 @@ export function playGame(game) {
     const r = resolveTurn(s, o, { frames: false });
     row.lasers1 += r.stats.lasers[0]; row.lasers2 += r.stats.lasers[1];
     row.torpedoes1 += r.stats.launches[0]; row.torpedoes2 += r.stats.launches[1];
+    row.intercepted += r.stats.intercepted[0] + r.stats.intercepted[1];
     for (const d of r.stats.destroyed) {
       if (d.cause.includes("laser")) row.byLaser++;
       if (d.cause.includes("torpedo")) row.byTorpedo++;
@@ -80,6 +81,7 @@ export function summarize(rows) {
       turns: avg((r) => r.turns),
       lasers: avg((r) => r.lasers1 + r.lasers2),
       torpedoes: avg((r) => r.torpedoes1 + r.torpedoes2),
+      intercepted: avg((r) => r.intercepted || 0),
       byLaser: avg((r) => r.byLaser), byTorpedo: avg((r) => r.byTorpedo),
       byCollision: avg((r) => r.byCollision), ownCollision: avg((r) => r.ownLosses), byEdge: avg((r) => r.byEdge), byPlanet: avg((r) => r.byPlanet || 0),
     };

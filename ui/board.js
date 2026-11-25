@@ -174,7 +174,7 @@ export class Board {
       } else if (f.type === "explosion") {
         const p = px(f.pos);
         el("circle", { cx: p.x, cy: p.y, r: SIZE * (f.radius + 0.6) * 1.5, class: "boom" }, this.gFx);
-      } else if (f.type === "collision" || f.type === "lost") {
+      } else if (f.type === "collision" || f.type === "lost" || f.type === "intercept") {
         const p = px(f.pos);
         el("circle", { cx: p.x, cy: p.y, r: SIZE * 1.1, class: "boom small" }, this.gFx);
       } else if (f.type === "damage") {
