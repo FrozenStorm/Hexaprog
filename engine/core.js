@@ -187,8 +187,8 @@ export function weaponOptions(s, u, kind) {
 }
 
 /**
- * Torpedos only accelerate: thrust d is allowed when the flight line from hex centre
- * to hex centre does not get shorter, |v + d| >= |v| (straight on, to the sides,
+ * Torpedos only accelerate: thrust d is allowed when the momentum arrow (hex centre
+ * to hex centre) stays as long or gets longer, |v + d| >= |v| (straight on, to the sides,
  * diagonally forward). Lengths in screen space (pointy-top hexes): x = q + r/2, y = r * sqrt(3)/2.
  */
 const len2 = (a) => (a.q + a.r / 2) ** 2 + 0.75 * a.r * a.r;
