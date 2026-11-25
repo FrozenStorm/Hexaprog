@@ -61,7 +61,7 @@ export function reflexPlan(s, p, rng, chaos = 0.5) {
       }
       if (best && rng() < 0.85) uo.laser = best;
     }
-    if (canLaunch(s, u) && enemies.length && rng() < 0.35) {
+    if (canLaunch(s, u) && enemies.length && rng() < 0.35 && !(R.oneWeaponPerTurn && uo.laser)) {
       const opts = weaponOptions(s, u, "torpedo");
       const e = enemies[rng.int(enemies.length)];
       uo.launch = opts.reduce((a, b) => (dist(add(u.pos, add(u.vel, a)), e.pos) <= dist(add(u.pos, add(u.vel, b)), e.pos) ? a : b));
@@ -83,8 +83,16 @@ function decisions(s, p) {
   const out = [];
   for (const u of liveShips(s, p)) {
     out.push({ unit: u.id, field: "thrust", options: diskCached(R.ship.thrust) });
-    if (canFireLaser(s, u)) out.push({ unit: u.id, field: "laser", options: [null, ...weaponOptions(s, u, "laser")] });
-    if (canLaunch(s, u)) out.push({ unit: u.id, field: "launch", options: [null, ...weaponOptions(s, u, "torpedo")] });
+    const lasers = canFireLaser(s, u) ? weaponOptions(s, u, "laser") : [];
+    const launches = canLaunch(s, u) ? weaponOptions(s, u, "torpedo") : [];
+    if (R.oneWeaponPerTurn) {
+      // One decision: no weapon, one of the lasers or one of the torpedo launches.
+      const options = [null, ...lasers.map((d) => ({ laser: d })), ...launches.map((d) => ({ launch: d }))];
+      if (options.length > 1) out.push({ unit: u.id, field: "weapon", options });
+    } else {
+      if (lasers.length) out.push({ unit: u.id, field: "laser", options: [null, ...lasers] });
+      if (launches.length) out.push({ unit: u.id, field: "launch", options: [null, ...launches] });
+    }
   }
   for (const w of s.weapons) {
     if (w.kind === "torpedo" && w.owner === p) out.push({ torp: w.id, options: torpThrustOptions(s, w) });
@@ -96,10 +104,18 @@ function setDecision(plan, dec, val) {
   if (dec.torp) plan.torps[dec.torp] = val;
   else {
     if (!plan.units[dec.unit]) plan.units[dec.unit] = { thrust: ZERO, laser: null, launch: null };
-    plan.units[dec.unit][dec.field] = val;
+    const uo = plan.units[dec.unit];
+    if (dec.field === "weapon") { uo.laser = (val && val.laser) || null; uo.launch = (val && val.launch) || null; }
+    else uo[dec.field] = val;
   }
 }
-const getDecision = (plan, dec) => (dec.torp ? plan.torps[dec.torp] : plan.units[dec.unit] && plan.units[dec.unit][dec.field]);
+function getDecision(plan, dec) {
+  if (dec.torp) return plan.torps[dec.torp];
+  const uo = plan.units[dec.unit];
+  if (!uo) return null;
+  if (dec.field !== "weapon") return uo[dec.field];
+  return uo.laser ? { laser: uo.laser } : uo.launch ? { launch: uo.launch } : null;
+}
 
 function score(s, p, plan, oppPlans, cfg) {
   let sum = 0, worst = Infinity;

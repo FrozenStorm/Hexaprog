@@ -103,7 +103,7 @@ export function renderGameGif(replay, { size = 9 } = {}) {
         const [a, b] = P(f.from), [c, d] = P(f.to);
         g.strokeStyle = hex(C.p[f.owner]); g.lineWidth = 2.5;
         g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke();
-      } else if (f.type === "explosion" || f.type === "collision" || f.type === "lost") {
+      } else if (f.type === "explosion" || f.type === "collision" || f.type === "lost" || f.type === "intercept") {
         const [x, y] = P(f.pos);
         g.strokeStyle = hex(f.type === "explosion" ? C.boom : C.red); g.lineWidth = 2;
         g.beginPath(); g.arc(x, y, size * (f.type === "explosion" ? (f.radius || 1) * 1.6 + 0.6 : 1), 0, Math.PI * 2); g.stroke();

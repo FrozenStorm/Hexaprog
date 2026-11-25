@@ -1,74 +1,96 @@
 # Hexaprog – Spielregeln (Flugvariante)
 
-Ein rundenbasiertes Weltraum-Strategiespiel, bei welchem die Spieler ihre Züge gleichzeitig planen und ausführen, um mit geschicktem Fliegen die gegnerischen Einheiten zu zerstören.
+Ein rundenbasiertes Weltraum-Strategiespiel für zwei Spieler. Beide planen ihre Züge geheim und führen sie gleichzeitig aus. Ziel ist es, mit geschicktem Fliegen die gegnerischen Einheiten zu zerstören.
 
-Quelle: *Spielregeln_Flugvariante.docx* (erstes Regelset) und Daniels Antworten auf die offenen Punkte vom 25.11.2026, gesammelt in [annahmen.md](annahmen.md). Varianten sind im KI-Lab umschaltbar. Alle Zahlen sind Parameter in `engine/rules.js`.
+## Spielziel
+
+Wer zuerst **zwei Einheiten** (Schiffe oder Basis) verliert, hat verloren. Verlieren beide Spieler im selben Zug ihre zweite Einheit, gewinnt, wer mehr Energie übrig hat; bei Gleichstand endet das Spiel unentschieden.
+
+Nach **40 Zügen** endet das Spiel ebenfalls: Es gewinnt, wer weniger Einheiten verloren hat, bei Gleichstand wer mehr Energie hat, sonst unentschieden.
 
 ## Spielfeld
 
-Hexagon-Karte mit 14 × 19 Feldern: 19 Reihen, gerade Reihen mit 14 Feldern, ungerade mit 13 (um ein halbes Feld versetzt). Die vier grünen Felder (zwei pro Seite) und das helle Mittelfeld sind **Planeten**: sie können weder durchflogen noch durchschossen werden.
+Hexagon-Karte mit 19 Reihen: gerade Reihen haben 14 Felder, ungerade 13 (um ein halbes Feld versetzt).
+
+Die vier grünen Felder (zwei pro Seite) und das helle Mittelfeld sind **Planeten**. Sie können weder durchflogen noch durchschossen werden:
 
 - Ein Schiff, dessen Flugweg in einen Planeten führt, prallt auf und ist zerstört.
-- Ein Laser endet vor dem Planeten; Felder dahinter liegen nicht in der Schadenszone.
-- Ein Torpedo, der in einen Planeten fliegt (auch beim Abschuss), geht verloren, ohne zu detonieren.
+- Ein Laser endet vor dem Planeten; Felder dahinter gehören nicht zur Schadenszone.
+- Ein Torpedo, der in einen Planeten fliegt (auch direkt beim Abschuss), geht verloren, ohne zu detonieren.
 - Auf Planeten darf nichts aufgestellt werden.
 
-## Aufstellung
-
-Zu Beginn stellt jeder Spieler verdeckt seine Basis, seine drei Schiffe und den Schwung-Marker jedes Schiffs frei in seiner eigenen Zone auf: die untersten vier Reihen (Spieler 1) bzw. die obersten vier (Spieler 2). Einheiten brauchen je ein eigenes Feld; liegt der Schwung-Marker auf dem Schiff, startet es mit Schwung 0. Dann werden die Aufstellungen gleichzeitig aufgedeckt.
-
-## Kommandokarte
-
-Jeder Spieler hat eine Hexagon-Kommandokarte pro Einheit: Schiff 1–3, Laser 1–3, Torpedo 1–3. Das mittlere Feld ist die relative Position der Einheit bzw. ihres Schwung-Plättchens. In der WebApp wird direkt auf dem Spielfeld geplant: die wählbaren Felder rund um den Schwung-Marker werden markiert.
+Ein Schiff, dessen Ziel ausserhalb des Spielfelds liegt, ist zerstört. Ein Torpedo, der das Spielfeld verlässt, ist weg.
 
 ## Einheiten
 
-Jeder Spieler hat zu Beginn **3 Schiffe und 1 Basis**.
+Jeder Spieler hat **1 Basis und 3 Schiffe**.
 
 | | Basis | Schiff |
 |---|---|---|
-| Energiepunkte | 6 | 6 |
-| Energieregeneration | +2 / Zug | keine |
-| Schub | 0 (kann sich nicht bewegen) | 1 |
-| Torpedoplätze | – | 2 |
+| Energie zu Beginn (= Maximum) | 6 | 6 |
+| Energieregeneration | +2 pro Zug | keine |
+| Schub | 0 (bewegt sich nicht) | 1 |
+| Torpedovorrat | – | 2 |
+| Waffen | keine | Laser, Torpedo |
 
-Beendet ein Schiff seine Bewegung angrenzend an die eigene Basis, werden seine Torpedos aufgefüllt. Die Basis hat keine Waffen.
+- Die Energie ist zugleich der Schild: Treffer ziehen Energie ab. Eine Einheit ist zerstört, wenn ein Treffer mehr Schaden macht, als sie Energie hat. Mit 0 Energie lebt sie also noch.
+- Regeneration füllt höchstens bis zum Startwert auf.
+- Beendet ein Schiff seine Bewegung angrenzend an die eigene Basis, wird sein Torpedovorrat aufgefüllt.
+- Fliegt ein Schiff auf das Feld einer Basis (auch der eigenen), ist das Schiff zerstört und die Basis erleidet **4 Schaden**.
+- Ziehen zwei Schiffe auf dasselbe Feld, sind beide zerstört (auch zwei eigene).
 
-Fliegt ein Schiff auf das Feld einer Basis (auch der eigenen), wird das Schiff zerstört und die Basis erleidet 4 Schaden.
+## Aufstellung
 
-## Allgemeine Regeln
+Zu Beginn stellt jeder Spieler **verdeckt** seine Basis, seine drei Schiffe und den Schwung-Marker jedes Schiffs frei in seiner Zone auf: die untersten vier Reihen (Spieler 1) bzw. die obersten vier (Spieler 2). Jede Einheit braucht ein eigenes Feld, Planeten sind tabu. Liegt der Schwung-Marker auf dem Schiff, startet es mit Schwung 0. Dann werden beide Aufstellungen gleichzeitig aufgedeckt.
 
-- Treffer verbrauchen Energie, da sich die Schiffe mit einem Energieschild schützen.
-- Laser abzufeuern kostet keine Energie (Änderung vom 25.11.2026; vorher 1). Dafür regenerieren Schiffe keine Energie mehr, nur die Basis.
-- Jedes Schiff hat begrenzten Laderaum für Torpedos.
-- Jeder Spieler plant seinen Zug geheim auf seiner Kommandokarte, anschliessend führen beide Spieler alle weiteren Punkte gleichzeitig aus.
-- Wer zuerst **zwei Einheiten** (Basen oder Schiffe) verliert, hat das Spiel verloren. Verlieren beide im selben Zug ihre zweite Einheit, gewinnt, wer mehr verbleibende Energie hat; bei Gleichstand unentschieden.
-- Eine Einheit ist zerstört, wenn ein Treffer mehr Schaden macht, als sie Energie hat. Regeneration füllt höchstens bis zum Startwert auf.
-- Ein Schiff, dessen Ziel ausserhalb des Spielfelds liegt, ist zerstört.
-- Nach 40 Zügen gewinnt, wer weniger Einheiten verloren hat, dann wer mehr Energie hat.
-- **Schwung** wird mit einem Marker pro Einheit dargestellt und zeigt, wohin sich die Einheit im nächsten Zug bewegen würde. Mit Schub kann dieser Marker verschoben werden.
-- Abgefeuerte Waffen werden als Marker auf dem Spielfeld dargestellt.
+## Schwung und Schub
 
-## Zugreihenfolge
+Jedes Schiff und jeder Torpedo hat einen **Schwung-Marker**. Er zeigt, auf welches Feld die Einheit im nächsten Zug fliegt. Mit **Schub** wird der Marker vor der Bewegung verschoben (Schiffe und Torpedos: um höchstens 1 Feld). Nach der Bewegung wird der Marker wieder im gleichen Abstand und in der gleichen Richtung vor die Einheit gelegt: die Geschwindigkeit bleibt erhalten.
 
-1. **Zug planen** – Schub und Waffenplättchen auf die Kommandokarte legen.
-2. **Waffe abfeuern** – Laser/Torpedo-Marker werden gelegt (Schwung des Schiffs ±1).
-3. **Schub anwenden** – das Schwung-Plättchen wird um den Schub verschoben.
-4. **Schiffe gemäss Schwung bewegen** – alle Schiffe rücken auf ihr Schwung-Plättchen vor, das Plättchen wird relativ zur Schiffposition gleich wie zuvor ausgelegt. Zwei Schiffe, die so auf dasselbe Feld ziehen, werden beide zerstört.
-5. **Waffen gemäss Schwung bewegen** – wie Schiffe, aber vor und nach dem Bewegen wird geprüft, ob Einheiten in der Schadenszone sind; diese erleiden Schaden. Jeder Laser kann jeder Einheit nur 1× pro Zug Schaden zufügen.
-6. **Energie regenerieren** – die Basis +2, Schiffe nicht.
-7. **Aufräumen** – Plättchen auf den Kommandokarten zurücknehmen, abgefeuerte Laser kommen vom Spielplan.
+Geplant wird auf einer Hexagon-Kommandokarte pro Einheit, deren Mittelfeld der Schwung-Marker ist. In der WebApp wird direkt auf dem Spielfeld geplant: die wählbaren Felder werden markiert.
 
 ## Waffen
 
+Pro Zug feuert jedes Schiff **höchstens eine Waffe**: einen Laser oder einen Torpedo. Ein abgefeuerter Waffen-Marker wird auf den Schwung-Marker des Schiffs oder ein angrenzendes Feld gelegt, nie auf das Schiff selbst. Sein Schwung ist der Abstand vom Schiff zum Marker; in Schritt 5 fliegt er nochmals um diesen Schwung weiter. Waffen treffen auch eigene Einheiten.
+
 ### Laser
-- Schaden 1, keine Energiekosten.
-- Schadenszone: alle Felder in gerader Linie zwischen Schiff und Laser-Marker.
-- Initialer Schwung: Schwung des Schiffs ±1.
-- Verschwindet am Ende des Zuges. Trifft alle Einheiten, die sich in diesem Zug über oder auf ein Feld der Schadenszone bewegen.
+
+- Schaden 1, kostet keine Energie.
+- Schadenszone: alle Felder in gerader Linie vom Schiff (nach seiner Bewegung) zum Laser-Marker, einmal vor und einmal nach der Bewegung des Lasers.
+- Getroffen wird jede Einheit, deren Flugweg in diesem Zug ein Feld der Schadenszone berührt, ausser das feuernde Schiff. Ein Laser trifft jede Einheit höchstens einmal pro Zug.
+- Der Laser verschwindet am Ende des Zuges.
 
 ### Torpedo
-- Schaden 2, Schadenszone 1 Feld Radius um den Torpedo-Marker.
-- Initialer Schwung: Schwung des Schiffs ±1, danach Schub 1 (wird jeden Zug auf der Torpedo-Kommandokarte geplant). Torpedos werden wie Schiffe über Schub gesteuert, haben aber nur Vorwärtsschub: der Schub darf nur in die vordere Hälfte der aktuellen Flugrichtung gelegt werden (geradeaus oder schräg nach vorne).
-- Kosten: 1 Torpedo aus dem Schiffsvorrat. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben.
-- Fliegt weiter wie ein Schiff und detoniert automatisch, wenn eine gegnerische Einheit in seiner Schadenszone ist oder wenn er direkt auf eine eigene Einheit fliegt. In beiden Fällen erleiden alle Einheiten in der Schadenszone Schaden.
+
+- Schaden 2 an allen Einheiten im Radius 1 um den Torpedo.
+- Kostet 1 Torpedo aus dem Vorrat des Schiffs. Ein Schiff darf beliebig viele Torpedos gleichzeitig im Flug haben (begrenzt nur durch den Vorrat).
+- Torpedos können **nur beschleunigen**: Schon beim Abschuss aus einem fliegenden Schiff darf der Marker nur geradeaus oder schräg nach vorne gelegt werden, nie zurück. Ab dem Folgezug wird jeder Torpedo wie ein Schiff mit Schub 1 gesteuert, aber ebenfalls nur nach vorne (geradeaus oder 60° schräg nach vorne).
+- Detonation: vor der Bewegung, wenn eine gegnerische Einheit oder ein gegnerischer Torpedo im Radius ist; nach der Bewegung ebenso, oder wenn der Torpedo direkt auf eine eigene Einheit fliegt. Bei einer Detonation erleiden alle Einheiten im Radius Schaden.
+- **Abfangen:** Jede Detonation zerstört alle anderen Torpedos im Radius (auch eigene); diese explodieren nicht selbst. So kann ein Torpedo gezielt einem gegnerischen Torpedo entgegengesteuert werden. Alle Torpedos werden gleichzeitig geprüft: zwei Torpedos, die sich gegenseitig auslösen, detonieren beide.
+
+## Zugablauf
+
+1. **Zug planen** – beide Spieler legen geheim Schub und Waffen fest.
+2. **Waffen abfeuern** – Laser- und Torpedo-Marker werden gelegt.
+3. **Schub anwenden** – die Schwung-Marker der Schiffe und Torpedos werden verschoben.
+4. **Schiffe bewegen** – alle Schiffe ziehen gleichzeitig auf ihren Schwung-Marker. Danach werden Zusammenstösse, Aufprall auf Planeten, Rammen von Basen und der Spielfeldrand ausgewertet, dann Torpedos an der Basis aufgefüllt.
+5. **Waffen bewegen** – alle Laser und Torpedos ziehen gleichzeitig gemäss ihrem Schwung. Vor und nach der Bewegung wird geprüft, welche Einheiten in einer Schadenszone sind. Der Schaden aller Waffen wird zusammengezählt und erst dann abgezogen.
+6. **Energie regenerieren** – jede Basis +2 (bis zum Maximum), Schiffe nicht.
+7. **Aufräumen** – Laser kommen vom Spielplan, Torpedos fliegen weiter.
+
+## Varianten im KI-Lab
+
+Alle Zahlen und Schalter stehen in `engine/rules.js` und lassen sich im KI-Lab verändern, um Regelideen zu testen. Die wichtigsten Alternativen:
+
+| Regel | Schalter | Alternativen |
+|---|---|---|
+| Zerstörung | `destroyWhen` | `zero`: schon bei 0 Energie zerstört |
+| Spielfeldrand | `edge` | `stop`: Schiff bleibt am Rand stehen |
+| Schiff auf Basis | `baseCollision`, `base.ramDamage` | `destroyBoth`, `ignore` |
+| Eine Waffe pro Zug | `oneWeaponPerTurn` | aus: Laser und Torpedo im selben Zug |
+| Torpedos nur vorwärts | `torpedo.forwardOnly` | aus: Schub in alle Richtungen |
+| Torpedos fangen Torpedos ab | `torpedo.intercept` | aus: Torpedos ignorieren sich |
+| Torpedos pro Schiff im Flug | `torpedo.perShip` | 0 = beliebig viele |
+| Planeten | `planets` | aus: farbige Felder nur Orientierung |
+| Eigenbeschuss | `friendlyFire` | aus |
+| Spiellänge | `maxTurns`, `timeout` | |

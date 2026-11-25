@@ -274,3 +274,41 @@ test("planets: ships crash, lasers are blocked, torpedoes are lost", async () =>
   const su = defaultSetup(s.rules, 0);
   assert.ok(!validSetup(s.rules, 0, { ...su, base: toAxial(3, 15) }));
 });
+
+test("one weapon per ship and turn; torpedoes launch only forwards of a moving ship", async () => {
+  const { weaponOptions } = await import("../engine/core.js");
+  const s = quiet(newGame());
+  const u = place(s, "p0s1", toAxial(4, 11), V(1, 0));
+  const o = sanitizeOrders(s, 0, orders({ p0s1: { laser: V(1, 0), launch: V(1, 0) } })).units.p0s1;
+  assert.deepEqual(o.laser, V(1, 0));
+  assert.equal(o.launch, null);
+  const launches = weaponOptions(s, u, "torpedo").map((d) => `${d.q},${d.r}`).sort();
+  assert.deepEqual(launches, ["0,0", "0,1", "1,-1", "1,0"].sort());
+  // Two torpedoes in flight from the same ship, fired on consecutive turns.
+  let r = resolveTurn(s, [orders({ p0s1: { launch: V(0, 0) } }), orders()]);
+  r = resolveTurn(r.state, [orders({ p0s1: { launch: V(0, 0) } }), orders()]);
+  assert.equal(r.state.weapons.filter((w) => w.from === "p0s1").length, 2);
+});
+
+test("torpedoes intercept enemy torpedoes; blasts destroy torpedoes in range", async () => {
+  const { setRule } = await import("../engine/rules.js");
+  const run = (intercept) => {
+    const s = quiet(newGame());
+    if (!intercept) s.rules = setRule(s.rules, "torpedo.intercept", false);
+    const c = toAxial(3, 10);
+    // Two torpedoes flying head-on, far from all units: after the move they are adjacent.
+    s.weapons.push({ id: "T1", kind: "torpedo", owner: 0, from: "p0s1", pos: c, vel: V(1, 0) });
+    s.weapons.push({ id: "T2", kind: "torpedo", owner: 1, from: "p1s1", pos: add(c, V(3, 0)), vel: V(-1, 0) });
+    // An own torpedo next to T1's target: caught in the blast, it does not explode itself.
+    s.weapons.push({ id: "T3", kind: "torpedo", owner: 0, from: "p0s2", pos: add(c, V(0, 1)), vel: V(0, 0) });
+    return resolveTurn(s, [orders(), orders()], { frames: true });
+  };
+  let r = run(true);
+  assert.equal(r.state.weapons.length, 0);
+  assert.deepEqual(r.stats.intercepted, [1, 0]);
+  assert.ok(r.state.units.every((u) => u.energy === unitById(newGame(), u.id).energy));
+  // Without interception they fly past each other.
+  r = run(false);
+  assert.equal(r.state.weapons.length, 3);
+  assert.deepEqual(r.stats.intercepted, [0, 0]);
+});
