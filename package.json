@@ -1,0 +1,10 @@
+{
+  "name": "hexaprog",
+  "private": true,
+  "type": "module",
+  "description": "Hexaprog web game with rules engine, AI opponent and AI Lab",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:online": "node test/online.e2e.mjs"
+  }
+}

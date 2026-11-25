@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hexaprog</title>
+  <meta name="description" content="Hexaprog: rundenbasiertes Weltraum-Strategiespiel mit gleichzeitigen Zügen">
+  <meta name="theme-color" content="#15171c">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="icon" href="icon/icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #15171c; --panel: #1f232b; --panel2: #272c36; --ink: #e9e2cf; --muted: #a59d8a;
+      --brass: #b08a4e; --brass2: #e0b86a; --cell: #2b333d; --cell-edge: #6d5a3a;
+      --green: #3d9a8c; --centre: #d9ceb0;
+      --p0: #4fc3ff; --p1: #ff8a4c; --danger: #ff4b4b; --ok: #79d27a;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+    button { font: inherit; color: var(--ink); background: var(--panel2); border: 1px solid var(--brass); border-radius: 8px;
+      padding: 8px 12px; cursor: pointer; touch-action: manipulation; }
+    button:hover:not(:disabled) { background: #333a46; }
+    button:disabled { opacity: .45; cursor: default; }
+    button.primary { background: var(--brass); color: #1a1408; font-weight: 700; border-color: var(--brass2); }
+    button.primary:hover:not(:disabled) { background: var(--brass2); }
+    button.on { outline: 2px solid var(--brass2); background: #3b3426; }
+    select, input { font: inherit; color: var(--ink); background: var(--panel2); border: 1px solid #555; border-radius: 6px; padding: 6px; }
+    h1, h2, h3 { font-weight: 700; letter-spacing: .04em; margin: 0 0 .5em; }
+    h1 { color: var(--brass2); }
+
+    #app { display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); height: 100%; }
+    header { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--brass); min-height: 44px; }
+    header .title { font-weight: 800; color: var(--brass2); letter-spacing: .12em; }
+    header .status { flex: 1; min-width: 0; color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 0; }
+    #board-wrap { min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
+    #board { width: 100%; height: 100%; display: block; }
+    #side { background: var(--panel); border-left: 1px solid #3a3426; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+    @media (max-width: 760px), (max-aspect-ratio: 1/1) {
+      main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+      #side { padding: 8px 16px; }
+      #side { border-left: 0; border-top: 1px solid #3a3426; max-height: 42vh; }
+    }
+
+    /* board */
+    .cell { fill: var(--cell); stroke: var(--cell-edge); stroke-width: 1; }
+    .cell.green { fill: var(--green); }
+    .cell.centre { fill: var(--centre); }
+    .cell-hit { fill: transparent; cursor: pointer; }
+    .unit { transition: transform .55s ease-in-out, opacity .5s; }
+    .unit .body { transition: transform .4s; }
+    .unit .hull { stroke: #0b0d10; stroke-width: 1.4; }
+    .unit.p0 .hull { fill: var(--p0); } .unit.p1 .hull { fill: var(--p1); }
+    .unit.base .core { fill: #0e1116; opacity: .55; }
+    .unit .label { font-size: 10px; font-weight: 800; text-anchor: middle; fill: #0b0d10; pointer-events: none; }
+    .unit.base .label { fill: var(--ink); }
+    .unit.dead { opacity: 0; }
+    .unit.sel .hull { stroke: #fff; stroke-width: 2.4; }
+    .unit.refill .hull { stroke: var(--ok); stroke-width: 3; }
+    .pip { fill: #444; } .pip.on { fill: var(--ok); } .tpip { fill: var(--brass2); }
+    .momg .mom { fill: none; stroke-width: 1.5; stroke-dasharray: 3 2; }
+    .momg.p0 .mom { stroke: var(--p0); } .momg.p1 .mom { stroke: var(--p1); }
+    .momline { stroke: #ffffff33; stroke-width: 1.2; }
+    .weapon { transition: transform .55s ease-in-out; }
+    .weapon .torp { stroke: #0b0d10; stroke-width: 1; }
+    .weapon.p0 .torp, .weapon.p0 .lasermark { fill: var(--p0); } .weapon.p1 .torp, .weapon.p1 .lasermark { fill: var(--p1); }
+    .wvec { stroke-width: 1; stroke-dasharray: 2 2; } .wvec.p0 { stroke: var(--p0); } .wvec.p1 { stroke: var(--p1); }
+    .opt { fill: #ffffff14; stroke: var(--brass2); stroke-width: 1.2; pointer-events: none; }
+    .opt.laser { stroke: var(--danger); } .opt.launch, .opt.steer { stroke: #f5d76e; }
+    .opt.sel { fill: #e0b86a55; stroke-width: 2.4; }
+    .opt.laser.sel { fill: #ff4b4b55; }
+    .zone { fill: #ff4b4b30; stroke: none; pointer-events: none; }
+    .arrow { stroke-width: 2; pointer-events: none; }
+    .arrow.p0 { stroke: var(--p0); } .arrow.p1 { stroke: var(--p1); } .arrow.torp { stroke: #f5d76e; stroke-dasharray: 3 2; }
+    .ghost { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-dasharray: 3 2; pointer-events: none; }
+    .ring { fill: none; stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+    .beam { stroke-width: 4; stroke-linecap: round; animation: beam 1s ease-out forwards; }
+    .beam.p0 { stroke: var(--p0); } .beam.p1 { stroke: var(--p1); }
+    @keyframes beam { 0% { opacity: 1; } 100% { opacity: .25; } }
+    .boom { fill: #ffb84d55; stroke: #ffde8a; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: boom .8s ease-out forwards; }
+    .boom.small { fill: #ff4b4b55; }
+    @keyframes boom { 0% { transform: scale(.2); opacity: 1; } 100% { transform: scale(1); opacity: .2; } }
+    .dmg { fill: var(--danger); font-weight: 800; font-size: 13px; text-anchor: middle; animation: rise 1.2s ease-out forwards; }
+    @keyframes rise { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-14px); } }
+
+    /* side panel */
+    .card { background: var(--panel2); border: 1px solid #3a3426; border-radius: 10px; padding: 8px; }
+    .card.sel { border-color: var(--brass2); }
+    .card .head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; cursor: pointer; }
+    .card .name { font-weight: 700; white-space: nowrap; }
+    .card .meta { font-size: 12px; color: var(--muted); }
+    .card .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+    .card .tools button { padding: 6px 4px; font-size: 13px; }
+    .card .tools button.set::after { content: " ✓"; color: var(--ok); }
+    .hint { font-size: 13px; color: var(--muted); line-height: 1.4; }
+    .log { font-size: 12px; color: var(--muted); line-height: 1.45; max-height: 160px; overflow-y: auto; }
+    .log b { color: var(--ink); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .grow { flex: 1; }
+    .p0c { color: var(--p0); } .p1c { color: var(--p1); }
+
+    /* overlays */
+    .overlay-screen { position: fixed; inset: 0; background: #0b0d10e6; display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+    .overlay-screen.show { display: flex; }
+    .dialog { background: var(--panel); border: 1px solid var(--brass); border-radius: 14px; padding: 18px; width: min(560px, 100%); max-height: 100%; overflow-y: auto; }
+    .dialog.wide { width: min(1100px, 100%); }
+    .menu-grid { display: grid; gap: 8px; }
+    .menu-grid button { text-align: left; padding: 12px; }
+    .menu-grid button small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .rules-text { font-size: 14px; line-height: 1.5; }
+    .rules-text h3 { color: var(--brass2); margin-top: 1em; }
+    table { border-collapse: collapse; font-size: 13px; width: 100%; }
+    th, td { border-bottom: 1px solid #3a3426; padding: 4px 6px; text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    .lab-variants .variant { border: 1px solid #3a3426; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+    .lab-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 10px; font-size: 13px; }
+    .lab-fields label { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+    .lab-fields input { width: 64px; }
+    .lab-fields .changed { color: var(--brass2); font-weight: 700; }
+    .bar { height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
+    .bar > div { height: 100%; background: var(--brass); }
+    .lobby-list { display: grid; gap: 6px; margin: 8px 0; }
+    .lobby-list .player { display: flex; justify-content: space-between; align-items: center; background: var(--panel2); padding: 6px 8px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <button id="btn-menu" title="Menü">☰</button>
+      <span class="title">HEXAPROG</span>
+      <span class="status" id="status"></span>
+      <button id="btn-rules" title="Regeln">?</button>
+    </header>
+    <main>
+      <div id="board-wrap"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <aside id="side"></aside>
+    </main>
+  </div>
+
+  <!-- Main menu -->
+  <div class="overlay-screen show" id="menu">
+    <div class="dialog">
+      <h1>HEXAPROG</h1>
+      <p class="hint">Plane deine Züge im Geheimen, dann fliegen alle gleichzeitig. Zerstöre zwei gegnerische Einheiten, bevor du zwei verlierst.</p>
+      <div class="menu-grid">
+        <button data-mode="ai">Gegen die KI <small>Du bist Spieler 1 (unten, blau)</small></button>
+        <div class="row" style="padding-left:4px">
+          <label class="hint">KI-Stärke <select id="menu-level">
+            <option value="easy">Leicht</option><option value="medium" selected>Mittel</option>
+            <option value="hard">Schwer</option><option value="expert">Experte</option></select></label>
+        </div>
+        <button data-mode="duel">Duell auf einem Gerät <small>Beide planen nacheinander verdeckt, dann wird ausgeführt</small></button>
+        <button data-mode="watch">KI gegen KI zuschauen <small>Zug für Zug, mit der gewählten KI-Stärke</small></button>
+        <button data-mode="online">Online spielen <small>Lobby: Namen eingeben, Gegner herausfordern</small></button>
+        <button data-mode="lab">KI-Lab <small>Regelvarianten automatisch gegeneinander testen</small></button>
+        <button id="menu-resume" style="display:none">Zurück zum Spiel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hand-over screen for the duel -->
+  <div class="overlay-screen" id="handover">
+    <div class="dialog" style="text-align:center">
+      <h2 id="handover-title">Spieler 2 ist dran</h2>
+      <p class="hint" id="handover-text">Gib das Gerät weiter. Die Planung von Spieler 1 bleibt verdeckt.</p>
+      <button class="primary" id="handover-go">Bereit</button>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div class="overlay-screen" id="gameover">
+    <div class="dialog" style="text-align:center">
+      <h2 id="gameover-title"></h2>
+      <p class="hint" id="gameover-text"></p>
+      <div class="row" style="justify-content:center">
+        <button id="gameover-board">Brett ansehen</button>
+        <button class="primary" id="gameover-again">Nochmal</button>
+        <button id="gameover-menu">Menü</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <div class="overlay-screen" id="rules">
+    <div class="dialog rules-text">
+      <div class="row"><h2 class="grow">Regeln (Kurzfassung)</h2><button id="rules-close">✕</button></div>
+      <p>Jeder Spieler hat <b>1 Basis</b> und <b>3 Schiffe</b>. Wer zuerst <b>zwei Einheiten</b> (Basen oder Schiffe) verliert, verliert das Spiel.</p>
+      <h3>Zugablauf</h3>
+      <ol>
+        <li><b>Zug planen</b> – beide gleichzeitig und verdeckt.</li>
+        <li><b>Waffen abfeuern</b> – Laser und Torpedos werden neben den Schwung-Marker des Schiffs gelegt (±1).</li>
+        <li><b>Schub</b> – der Schwung-Marker jedes Schiffs wird um bis zu 1 Feld verschoben.</li>
+        <li><b>Schiffe bewegen</b> – jedes Schiff rückt auf seinen Schwung-Marker vor, der Marker wird mit gleichem Abstand neu gelegt. Zwei Schiffe auf einem Feld: beide zerstört.</li>
+        <li><b>Waffen bewegen</b> – Waffen fliegen gemäss ihrem Schwung. Schaden wird vor und nach der Bewegung geprüft.</li>
+        <li><b>Energie regenerieren</b> – Schiff +1, Basis +2 (max. 6).</li>
+        <li><b>Aufräumen</b> – Laser verschwinden.</li>
+      </ol>
+      <h3>Energie</h3>
+      <p>Schiffe und Basis haben 6 Energie. Treffer verbrauchen Energie (Schild), ein Laserschuss kostet 1. Ist der Schaden grösser als die Energie, wird die Einheit zerstört.</p>
+      <h3>Laser</h3>
+      <p>Schaden 1 an allen Einheiten, die in diesem Zug auf oder über ein Feld der Linie zwischen Schiff und Laser-Marker fliegen oder dort stehen. Jeder Laser trifft jede Einheit höchstens einmal.</p>
+      <h3>Torpedo</h3>
+      <p>Jedes Schiff trägt 2 Torpedos. Ein Torpedo fliegt wie ein Schiff (Schub 1) und detoniert, sobald ein Gegner im Radius 1 ist oder wenn er direkt auf eine eigene Einheit fliegt: 2 Schaden an allen Einheiten im Radius 1. Endet ein Schiff neben der eigenen Basis, werden seine Torpedos aufgefüllt.</p>
+      <h3>Bedienung</h3>
+      <p>Schiff antippen, dann <b>Schub</b>, <b>Laser</b> oder <b>Torpedo</b> wählen und ein markiertes Feld antippen. Gestrichelte Kreise zeigen den Schwung (wohin die Einheit ohne Schub fliegt). Rote Felder zeigen die Laser-Zone.</p>
+      <p class="hint">Vollständige Regeln und offene Annahmen: docs/rules im Repository.</p>
+    </div>
+  </div>
+
+  <!-- Online lobby -->
+  <div class="overlay-screen" id="lobby">
+    <div class="dialog">
+      <div class="row"><h2 class="grow">Online-Lobby</h2><button id="lobby-close">✕</button></div>
+      <div class="row"><input id="lobby-name" maxlength="20" placeholder="Dein Name" class="grow"><button class="primary" id="lobby-enter">Betreten</button></div>
+      <p class="hint" id="lobby-msg"></p>
+      <div class="lobby-list" id="lobby-list"></div>
+      <div id="lobby-challenges"></div>
+    </div>
+  </div>
+
+  <!-- AI Lab -->
+  <div class="overlay-screen" id="lab">
+    <div class="dialog wide" id="lab-body"></div>
+  </div>
+
+  <script type="module" src="ui/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  </script>
+</body>
+</html>
