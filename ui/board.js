@@ -13,6 +13,18 @@ const el = (tag, attrs = {}, parent) => {
   return e;
 };
 const px = (a) => toPixel(a, SIZE);
+
+/** Weapon symbols: torpedo = pointed missile, laser = four-pointed star. */
+function weaponSymbol(g, kind) {
+  if (kind === "torpedo") el("path", { d: "M 8 0 L 2 3.5 L -6 3.5 L -8 6 L -8 -6 L -6 -3.5 L 2 -3.5 Z", class: "torp" }, g);
+  else el("path", { d: "M 0 -8 L 2 -2 L 8 0 L 2 2 L 0 8 L -2 2 L -8 0 L -2 -2 Z", class: "lasermark" }, g);
+}
+/** Screen angle of a flight direction (degrees), 0 when standing still. */
+function symbolAngle(v) {
+  if (!v || (!v.q && !v.r)) return 0;
+  const p = toPixel(v, 1);
+  return (Math.atan2(p.y, p.x) * 180) / Math.PI;
+}
 const poly = (a, s = SIZE) => { const p = px(a); return corners(p.x, p.y, s).map((c) => c.map((n) => n.toFixed(2)).join(",")).join(" "); };
 /** Direction angle in degrees of a hex vector (0 = right, clockwise in screen space). */
 const angleOf = (v) => { const p = px(v); return (Math.atan2(p.y, p.x) * 180) / Math.PI; };
@@ -126,17 +138,13 @@ export class Board {
       let g = this.weaponEls.get(w.id);
       if (!g) {
         g = el("g", { class: `weapon p${w.owner} ${w.kind}` }, this.gWeapons);
-        if (w.kind === "torpedo") {
-          el("path", { d: "M 6 0 L 0 4 L -6 0 L 0 -4 Z", class: "torp" }, g);
-        } else {
-          el("circle", { r: 4, class: "lasermark" }, g);
-        }
+        weaponSymbol(g, w.kind);
         g._vec = el("line", { class: "wvec" }, this.gWeapons);
         this.weaponEls.set(w.id, g);
       }
       wseen.add(w.id);
       const p = px(w.pos), m = px(add(w.pos, w.vel));
-      g.style.transform = `translate(${p.x}px, ${p.y}px)`;
+      g.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${symbolAngle(w.vel)}deg)`;
       g._vec.setAttribute("x1", p.x); g._vec.setAttribute("y1", p.y);
       g._vec.setAttribute("x2", m.x); g._vec.setAttribute("y2", m.y);
       g._vec.setAttribute("class", `wvec p${w.owner}`);
@@ -159,6 +167,13 @@ export class Board {
     if (eq(a, b)) return;
     const p = px(a), q = px(b);
     el("line", { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: `arrow ${cls}`, "marker-end": `url(#arrow${owner ?? "W"})` }, this.gOverlay);
+  }
+  /** Preview of a planned weapon: its symbol (half transparent) at c, flying with vel. */
+  marker(c, kind, owner, vel) {
+    const p = px(c);
+    const g = el("g", { class: `weapon preview p${owner} ${kind}` }, this.gOverlay);
+    g.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${symbolAngle(vel)}deg) scale(1.25)`;
+    weaponSymbol(g, kind);
   }
   ghost(c, cls) { const p = px(c); el("circle", { cx: p.x, cy: p.y, r: SIZE * 0.45, class: `ghost ${cls}` }, this.gOverlay); }
   ring(c, cls) { const p = px(c); el("circle", { cx: p.x, cy: p.y, r: SIZE * 0.8, class: `ring ${cls}` }, this.gOverlay); }

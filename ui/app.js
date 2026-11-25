@@ -309,16 +309,18 @@ function renderOverlay() {
     const end = add(add(u.pos, u.vel), o.thrust || { q: 0, r: 0 });
     const vel = add(u.vel, o.thrust || { q: 0, r: 0 });
     if (o.laser) {
-      const lv = add(u.vel, o.laser);
-      b.zone(clearLine(s.rules, end, add(add(u.pos, lv), lv)), "laser");
+      const lv = add(u.vel, o.laser), lpos = add(u.pos, lv);
+      b.zone(clearLine(s.rules, end, add(lpos, lv)), "laser");
+      b.arrow(lpos, add(lpos, lv), "laser");
+      b.marker(lpos, "laser", p, lv);
     }
     b.arrow(u.pos, end, `p${p}`, p);
     if (!eq(u.pos, end)) b.ghost(end, `p${p}`);
     if (len(vel)) b.arrow(end, add(end, vel), "torp", undefined);
     if (o.launch) {
       const tv = add(u.vel, o.launch), spawn = add(u.pos, tv);
-      b.ghost(spawn, "torp");
       b.arrow(spawn, add(spawn, tv), "torp");
+      b.marker(spawn, "torpedo", p, tv);
     }
   }
   for (const w of s.weapons) {

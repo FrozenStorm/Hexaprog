@@ -76,6 +76,7 @@ export function renderGameGif(replay, { size = 9 } = {}) {
       const [x, y] = P(w.pos);
       g.fillStyle = hex(C.p[w.owner]);
       if (w.kind === "torpedo") { g.beginPath(); g.moveTo(x + 4, y); g.lineTo(x, y + 3); g.lineTo(x - 4, y); g.lineTo(x, y - 3); g.fill(); }
+      else { g.beginPath(); for (let k = 0; k < 8; k++) { const r = k % 2 ? 1.2 : 4.5, a = (k * Math.PI) / 4 - Math.PI / 2; g.lineTo(x + r * Math.cos(a), y + r * Math.sin(a)); } g.closePath(); g.fill(); }
     }
     for (const u of view.units) {
       if (!u.alive) continue;

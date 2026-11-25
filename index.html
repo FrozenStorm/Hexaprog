@@ -66,7 +66,11 @@
     .momg.p0 .mom { stroke: var(--p0); } .momg.p1 .mom { stroke: var(--p1); }
     .momline { stroke: #ffffff33; stroke-width: 1.2; }
     .weapon { transition: transform .55s ease-in-out; }
-    .weapon .torp { stroke: #0b0d10; stroke-width: 1; }
+    .weapon .torp, .weapon .lasermark { stroke: #0b0d10; stroke-width: 1; }
+    .weapon.preview { opacity: .85; pointer-events: none; }
+    .weapon.preview .torp { stroke: #f5d76e; stroke-width: 1.4; }
+    .weapon.preview .lasermark, .weapon.laser .lasermark { stroke: var(--danger); stroke-width: 1.4; }
+    .arrow.laser { stroke: var(--danger); stroke-dasharray: 3 2; }
     .weapon.p0 .torp, .weapon.p0 .lasermark { fill: var(--p0); } .weapon.p1 .torp, .weapon.p1 .lasermark { fill: var(--p1); }
     .wvec { stroke-width: 1; stroke-dasharray: 2 2; } .wvec.p0 { stroke: var(--p0); } .wvec.p1 { stroke: var(--p1); }
     .opt { fill: #ffffff14; stroke: var(--brass2); stroke-width: 1.2; pointer-events: none; }
@@ -160,7 +164,7 @@
         <button data-mode="lab">KI-Lab <small>Regelvarianten automatisch gegeneinander testen, mit Video pro Spiel</small></button>
         <button id="menu-resume" style="display:none">Zurück zum Spiel</button>
       </div>
-      <p class="hint" style="text-align:right; margin:8px 0 0">Version 7 · 25.11.2026</p>
+      <p class="hint" style="text-align:right; margin:8px 0 0">Version 8 · 25.11.2026</p>
     </div>
   </div>
 
